@@ -34,6 +34,21 @@ As a robust and highly performing communication system it can build the
 foundation of complex digitization projects in the area of (I)IoT or
 Cloud-Computing.
 
-This open-source project is professionally managed and supported by the
-[Heisenware GmbH](https://heisenware.com), which is additionally offering a
-cloud-based, no-code platform interfacing all VRPC adapted code.
+> **NOTE**
+>
+> This open-source project is professionally managed and supported by
+> [Heisenware GmbH](https://heisenware.com), which offers a cloud-based, no-code
+> platform interfacing all VRPC adapted code across all available technologies.
+
+
+## VRPC for C++ (as header-only library)
+
+Understand how to use it by looking at the examples:
+
+- [Simple Agent Example](examples/foo/README.md)
+- [Advanced Agent Example](examples/bar/README.md)
+
+Get all the details by reading the documentation:
+
+- [Adapter](docs/adpater.md)
+- [Agent](docs/agent.md)

@@ -1,5 +1,8 @@
 # C++ Adapter
 
+- Defined in header `<vrpc/adapter.hpp>`
+- Provides a set of macros to non-intrusively register existing code
+
 When adapting existing C++ code, you must tell VRPC:
 
 1. all classes and functions you want to use
@@ -17,11 +20,11 @@ namespace vrpc {
 }
 ```
 
----
+## Adapter Macros
 
 VRPC basically uses only five different macro types to adapt existing code:
 
-## 1. Constructors
+### 1. Constructors
 
 ```cpp
 VRPC_CTOR(<className>, <args>)
@@ -30,7 +33,7 @@ VRPC_CTOR(<className>, <args>)
 Use this macro to register constructors with arguments. Repeat
 this macro for all overloads you need.
 
-## 2. Member functions
+### 2. Member functions
 
 ```cpp
 VRPC_MEMBER_FUNCTION(<className>, <returnValue>, <functionName>[, <args>])
@@ -45,7 +48,7 @@ For **const**ant member functions use:
 VRPC_CONST_MEMBER_FUNCTION(<className>, <returnValue>, <functionName>[, <args>])
 ```
 
-## 3. Static functions
+### 3. Static functions
 
 ```cpp
 VRPC_STATIC_FUNCTION(<className>, <returnValue>, <functionName>[, <args>])
@@ -54,7 +57,7 @@ VRPC_STATIC_FUNCTION(<className>, <returnValue>, <functionName>[, <args>])
   Use this macro to register static functions. Repeat this macro for all
   overloads you need.
 
-## 4. Callbacks
+### 4. Callbacks
 
 ```cpp
 VRPC_CALLBACK(<args>)
@@ -63,7 +66,7 @@ VRPC_CALLBACK(<args>)
 Use this macro if an argument of a function you bind reflects a callback.
 The provided arguments must match the expected signature of the callback.
 
-## 5. Custom Types
+### 5. Custom Types
 
 ```cpp
 VRPC_DEFINE_TYPE(<type>, <member1>, <member2>, ...)
@@ -71,14 +74,13 @@ VRPC_DEFINE_TYPE(<type>, <member1>, <member2>, ...)
 
 Use this macro to expose custom data types, such as structs.
 
----
-**IMPORTANT** Windows is different
-
-On windows the syntax of the macros is slightly different
-(as the MSVC++ compiler is broken for variadic macros).
-All member function and static function macros need to start with an
-underscore and must end with `_<N>` where `N` is the number of arguments
-in the macro.
+> **IMPORTANT** Windows is different
+>
+> On windows the syntax of the macros is slightly different
+> (as the MSVC++ compiler is broken for variadic macros).
+> All member function and static function macros need to start with an
+> underscore and must end with `_<N>` where `N` is the number of arguments
+> in the macro.
 
 To e.g. bind this member function of class `Foo`:
 
@@ -91,8 +93,6 @@ use:
 ```cpp
 _VRPC_MEMBER_FUNCTION_5(Foo, std::string, bar, int, float)
 ```
-
----
 
 ## Adding function and parameter documentation
 
