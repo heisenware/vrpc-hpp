@@ -21,7 +21,7 @@ make existing C++ code remotely callable.
 >
 > Finally create a directory `src` and you are good to go.
 
-## STEP 1: C++ code that should be bound
+## STEP 1: Existing C++ code
 
 We pretend that the code below already existed and should be made remotely
 accessible.
@@ -41,7 +41,7 @@ class Foo {
 };
 ```
 
-## STEP 2: Main File
+## STEP 2: Make it accessible remotely
 
 We are going to produce an executable that starts an agent and sits waiting
 until it receives remote requests to call functions. Hence, we have to provide

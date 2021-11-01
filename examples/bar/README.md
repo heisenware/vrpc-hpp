@@ -20,7 +20,7 @@ that creating VRPC bindings still remains a trivial task...
 >
 > Finally create a directory `src` and you are good to go.
 
-## STEP 1: C++ code that should be adapted
+## STEP 1: Existing C++ code
 
 This time our code is a bit more elaborate and split into header and
 corresponding source file.
@@ -146,7 +146,7 @@ std::string Bar::_random() const {
 }
 ```
 
-## STEP 2: Main file
+## STEP 2: Make it remotely accessible
 
 We are going to produce an executable that starts an agent and sits waiting
 until it receives remote requests to call functions. Hence, we have to provide
