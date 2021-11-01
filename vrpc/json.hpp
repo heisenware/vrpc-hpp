@@ -2588,6 +2588,9 @@ using is_detected_convertible =
 @def VRPC_DEFINE_TYPE_NON_INTRUSIVE
 @since version 3.9.0
 */
+#define VRPC_DEFINE_TYPE(Type, ...) \
+    VRPC_DEFINE_TYPE_NON_INTRUSIVE(Type, __VA_ARGS__)
+
 #define VRPC_DEFINE_TYPE_NON_INTRUSIVE(Type, ...)  \
     inline void to_json(vrpc::json& vrpc_json_j, const Type& vrpc_json_t) { VRPC_JSON_EXPAND(VRPC_JSON_PASTE(VRPC_JSON_TO, __VA_ARGS__)) } \
     inline void from_json(const vrpc::json& vrpc_json_j, Type& vrpc_json_t) { VRPC_JSON_EXPAND(VRPC_JSON_PASTE(VRPC_JSON_FROM, __VA_ARGS__)) }

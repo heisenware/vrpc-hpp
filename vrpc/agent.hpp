@@ -5,7 +5,7 @@
 
 #include <vrpc/json.hpp>
 #include <vrpc/mqtt.hpp>
-#include <vrpc/vrpc_adapter.hpp>
+#include <vrpc/adapter.hpp>
 
 using namespace std::chrono_literals;
 
