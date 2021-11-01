@@ -36,7 +36,6 @@ class Bar {
   Selection getSelection() const;
 
  private:
-
   std::string _random() const;
 
   BottleCallbacks _addListeners;

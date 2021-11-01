@@ -1,5 +1,5 @@
 TARGET = vrpc-bar-agent
-CPPFLAGS = -pthread -fPIC -m64 -O3 -std=c++14 -Wall -Wextra
+CPPFLAGS = -I. -pthread -fPIC -m64 -O2 -std=c++14
 LDFLAGS = -pthread
 
 SRCS := $(shell find ./src -name *.cpp)

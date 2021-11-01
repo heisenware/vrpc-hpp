@@ -1,18 +1,11 @@
-#include <vrpc/vrpc_adapter.hpp>
-#include <vrpc/vrpc_agent.hpp>
+#include <vrpc/adapter.hpp>
+#include <vrpc/agent.hpp>
 #include "Bar.hpp"
 
 namespace vrpc {
 
 // Register custom type: Bottle
-void to_json(json& j, const Bottle& b) {
-  j = json{{"name", b.name}, {"category", b.category}, {"country", b.country}};
-}
-void from_json(const json& j, Bottle& b) {
-  b.name = j.at("name").get<std::string>();
-  b.category = j.at("category").get<std::string>();
-  b.country = j.at("country").get<std::string>();
-}
+VRPC_DEFINE_TYPE(Bottle, name, category, country);
 
 // Register static function
 VRPC_STATIC_FUNCTION(Bar, std::string, philosophy)
@@ -38,7 +31,6 @@ VRPC_CONST_MEMBER_FUNCTION(Bar, Bar::Selection, getSelection)
 
 int main(int argc, char** argv) {
   auto agent = vrpc::VrpcAgent::from_commandline(argc, argv);
-  if (agent)
-    agent->serve();
+  if (agent) agent->serve();
   return EXIT_SUCCESS;
 }
