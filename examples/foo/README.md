@@ -94,8 +94,8 @@ g++ -I. -pthread -o vrpc-foo-agent src/main.cpp
 
 As you can see we are telling the compiler to add the current working directory
 to the include path. This is needed to find the VRPC headers in the `vrpc`
-folder. That's already it! After some time your agent should be built and be ready to
-use.
+folder. That's already it! After some time your agent should be built and be
+ready to use.
 
 
 Try it by simply running the executable in an all-default setting (using the
