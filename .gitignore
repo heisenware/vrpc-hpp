@@ -34,3 +34,8 @@
 # Custom
 vrpc-foo-agent
 vrpc-bar-agent
+test/agent/fixtures/agent1/vrpc
+test/agent/fixtures/agent2/vrpc
+
+# Node.js
+node_modules
