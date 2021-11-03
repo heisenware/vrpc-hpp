@@ -47,7 +47,7 @@ else
 fi
 
 # call the cleanup fuction
-# cleanup
+cleanup
 
 # exit the script with the same code as the test service code
 exit $EXIT_CODE
