@@ -132,7 +132,7 @@ BOOST_LOG_ATTRIBUTE_KEYWORD(address, "MqttAddress", void const*)
 
 #else  // defined(MQTT_USE_LOG)
 
-#define MQTT_LOG(chan, sev) std::cout << std::endl << chan << ": "
+#define MQTT_LOG(chan, sev) std::cout << chan << ": " << std::endl
 #define MQTT_ADD_VALUE(name, val) val
 
 #endif // defined(MQTT_USE_LOG)

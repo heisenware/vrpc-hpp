@@ -3,9 +3,9 @@
 #include <iostream>
 #include <map>
 
+#include <vrpc/adapter.hpp>
 #include <vrpc/json.hpp>
 #include <vrpc/mqtt.hpp>
-#include <vrpc/adapter.hpp>
 
 using namespace std::chrono_literals;
 
@@ -100,6 +100,26 @@ class VrpcAgent {
             {"status", "offline"}, {"hostname", VrpcAgent::get_hostname()}}
                                   .dump()),
         mqtt::qos::at_least_once | mqtt::retain::yes));
+
+    // reconnect handler
+    boost::asio::steady_timer timer(_ioc);
+    std::function<void()> reconnect;
+    reconnect = [&] {
+      // wait 3 seconds and connect again
+      timer.expires_after(std::chrono::seconds(3));
+      timer.async_wait([&](boost::system::error_code const& ec) {
+        if (!ec) {
+          // timer fired
+          std::cout << "try connect again" << std::endl;
+          mqtt::error_code ec;
+          _client->connect(ec);  // connect again
+          if (ec) {
+            std::cout << "error " << ec.message() << std::endl;
+            reconnect();
+          }
+        }
+      });
+    };
 
     // on connection established
     _client->set_connack_handler(
@@ -196,15 +216,24 @@ class VrpcAgent {
     });
 
     // on connection closed
-    _client->set_close_handler([]() { std::cout << "closed." << std::endl; });
+    _client->set_close_handler([&] {
+      std::cout << "connection closed" << std::endl;
+      reconnect();
+    });
 
     // on error
-    _client->set_error_handler([](mqtt::error_code ec) {
-      std::cout << "error: " << ec.message() << std::endl;
+    _client->set_error_handler([&](boost::system::error_code const& ec) {
+      std::cout << "connection error " << ec.message() << std::endl;
+      reconnect();
     });
 
     // Connect
-    _client->connect();
+    mqtt::error_code ec;
+    _client->connect(ec);
+    if (ec) {
+      std::cout << "error " << ec.message() << std::endl;
+      reconnect();
+    }
     _ioc.run();
   }
 
@@ -236,7 +265,7 @@ class VrpcAgent {
     _client = mqtt::make_sync_client(_ioc, _broker.host, _broker.port);
     // register handler for vrpc callbacks
     vrpc::Callback::register_callback_handler([&](const json& j) {
-      std::cout << j << std::endl;
+      std::cout << "FORWARDING CALLBACK: " << j << std::endl;
       const std::string sender = j["sender"].get<std::string>();
       _client->publish(sender, j.dump(), mqtt::qos::at_least_once);
     });
@@ -249,8 +278,8 @@ class VrpcAgent {
       const std::string arg(args[i]);
       if (arg == "--help") {
         std::cout << "usage: " << args[0]
-                  << " -d <domain> -a <agent> -t <token> [-u <user> -P "
-                     "<password> -b <broker> -p <plugin>]"
+                  << " -d <domain> -a <agent> -t <token> -u <user> -P "
+                     "<password> -b <broker> -p <plugin>"
                   << std::endl;
         return false;
       }
@@ -462,8 +491,8 @@ class VrpcAgent {
   }
 
   void register_isolated_instance(const std::string& instance,
-                                 const std::string& klass,
-                                 const std::string& client_id) {
+                                  const std::string& klass,
+                                  const std::string& client_id) {
     const auto it = _isolated_instances.find(client_id);
     if (it != _isolated_instances.end()) {  // already seen
       it->second.insert({instance, klass});
@@ -476,8 +505,8 @@ class VrpcAgent {
   }
 
   void unregister_isolated_instance(const std::string& instance,
-                                   const std::string& klass,
-                                   const std::string& client_id) {
+                                    const std::string& klass,
+                                    const std::string& client_id) {
     const auto it = _isolated_instances.find(client_id);
     if (it == _isolated_instances.end()) {
       _VRPC_DEBUG << "Failed un-registerting not registered instance: "

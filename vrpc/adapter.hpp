@@ -300,83 +300,78 @@ namespace vrpc {
     struct is_std_function<const std::function<void (Args...)>&>
     : std::true_type {};
 
-    template <char C, typename ...Args>
+    template <char C, typename... Args>
     struct unpack_impl;
 
     /* This specialization will remove reference and CV qualifier and bring
-    * back the recursion to the standard path using vrpc::json::get().
-    * Really, it should use vrpc::json::get_ref() in combination with
-    * std::tie(), however currently json does not support custom types in refs.
-    */
-    template<char C, typename A, typename ...Args>
+     * back the recursion to the standard path using vrpc::json::get().
+     * Really, it should use vrpc::json::get_ref() in combination with
+     * std::tie(), however currently json does not support custom types in refs.
+     */
+    template <char C, typename A, typename... Args>
     struct unpack_impl<C, A, Args...> {
-      template<
-        typename T = A,
-        typename std::enable_if<std::is_reference<T>::value, int>::type = 0
-      >
-      static auto unpack(vrpc::json& j)
-      -> decltype(
-        std::tuple_cat(
+      template <typename T = A,
+                typename std::enable_if<std::is_reference<T>::value &&
+                                            !is_std_function<T>::value,
+                                        int>::type = 0>
+      static auto unpack(vrpc::json& j) -> decltype(std::tuple_cat(
           std::make_tuple(std::declval<no_ref_no_const<T>>()),
-          unpack_impl<C + 1, Args...>::unpack(j)
-        )
-      ) {
+          unpack_impl<C + 1, Args...>::unpack(j))) {
         // length 4 for better assembly alignment
         constexpr const char key[] = {'_', C, '\0', '\0'};
         typedef typename std::remove_const<
-          typename std::remove_reference<T>::type
-        >::type T_no_ref_no_const;
+            typename std::remove_reference<T>::type>::type T_no_ref_no_const;
         return std::tuple_cat(
-          std::make_tuple(j["data"][key].get<T_no_ref_no_const>()),
-          unpack_impl < C + 1, Args...>::unpack(j)
-        );
+            std::make_tuple(j["data"][key].get<T_no_ref_no_const>()),
+            unpack_impl<C + 1, Args...>::unpack(j));
       }
 
-      template<
-        typename T = A,
-        typename std::enable_if<!std::is_reference<T>::value, int>::type = 0
-      >
+      template <typename T = A,
+                typename std::enable_if<!std::is_reference<T>::value &&
+                                            !is_std_function<T>::value,
+                                        int>::type = 0>
       static auto unpack(vrpc::json& j)
-      -> decltype(std::tuple_cat(
-        std::make_tuple(std::declval<T>()),
-        unpack_impl<C + 1, Args...>::unpack(j))
-      ) {
+          -> decltype(std::tuple_cat(std::make_tuple(std::declval<T>()),
+                                     unpack_impl<C + 1, Args...>::unpack(j))) {
         constexpr const char key[] = {'_', C, '\0', '\0'};
-        return std::tuple_cat(
-          std::make_tuple(j["data"][key].get<T>()),
-          unpack_impl < C + 1, Args...>::unpack(j)
-        );
+        return std::tuple_cat(std::make_tuple(j["data"][key].get<T>()),
+                              unpack_impl<C + 1, Args...>::unpack(j));
+      }
+
+      template <
+          typename T = A,
+          typename std::enable_if<is_std_function<T>::value, int>::type = 0>
+      static auto unpack(vrpc::json& j) {
+        constexpr const char key[] = {'_', C, '\0', '\0'};
+        auto ptr = std::make_shared<CallbackT<no_ref_no_const<T>>>(j, key);
+        return std::tuple_cat(std::make_tuple(ptr->bind_wrapper()),
+                              unpack_impl<C + 1, Args...>::unpack(j));
       }
     };
 
-    template<char C, typename A>
+    template <char C, typename A>
     struct unpack_impl<C, A> {
-      template<
-        typename T = A,
-        typename std::enable_if<
-          std::is_reference<T>::value &&
-          !is_std_function<T>::value, int>::type = 0
-      >
+      template <typename T = A,
+                typename std::enable_if<std::is_reference<T>::value &&
+                                            !is_std_function<T>::value,
+                                        int>::type = 0>
       static std::tuple<no_ref_no_const<T>> unpack(vrpc::json& j) {
         constexpr const char key[] = {'_', C, '\0', '\0'};
         return std::make_tuple(j["data"][key].get<no_ref_no_const<T>>());
       }
 
-      template<
-        typename T = A,
-        typename std::enable_if<
-          !std::is_reference<T>::value &&
-          !is_std_function<T>::value, int>::type = 0
-      >
+      template <typename T = A,
+                typename std::enable_if<!std::is_reference<T>::value &&
+                                            !is_std_function<T>::value,
+                                        int>::type = 0>
       static std::tuple<T> unpack(vrpc::json& j) {
         constexpr const char key[] = {'_', C, '\0', '\0'};
         return std::make_tuple(j["data"][key].get<T>());
       }
 
-      template<
-        typename T = A,
-        typename std::enable_if<is_std_function<T>::value, int>::type = 0
-      >
+      template <
+          typename T = A,
+          typename std::enable_if<is_std_function<T>::value, int>::type = 0>
       static auto unpack(vrpc::json& j) {
         constexpr const char key[] = {'_', C, '\0', '\0'};
         auto ptr = std::make_shared<CallbackT<no_ref_no_const<T>>>(j, key);
@@ -384,14 +379,11 @@ namespace vrpc {
       }
     };
 
-    template<char C>
+    template <char C>
     struct unpack_impl<C> {
-
-      static std::tuple<> unpack(vrpc::json&) {
-        return std::tuple<>();
-      }
+      static std::tuple<> unpack(vrpc::json&) { return std::tuple<>(); }
     };
-  }
+    }  // namespace detail
 
   /**
    * Unpack parameters into a tuple using perfect forwarding
