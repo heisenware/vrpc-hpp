@@ -1,27 +1,19 @@
 version: "3.1"
 services:
 
-  agent:
-    image: node:12.16.1-alpine
-    hostname: agent
-    container_name: ${TEST_CONT}
-    volumes:
-      - ../../../:/app
-      - /var/run/docker.sock:/var/run/docker.sock
-    working_dir: /app
+  agent1:
+    build: fixtures/agent1
+    hostname: agent1
     depends_on:
       - broker
-    command: [
-      "test/js/agent/wait-for.sh",
-      "broker:1883",
-      "--",
-      "node_modules/.bin/mocha",
-      "test/js/agent/*.js",
-      "--colors",
-      "--exit",
-      "--timeout",
-      "20000"
-    ]
+    command: ["-b", "mqtt://broker:1883", "-d", "test.vrpc", "-a", "agent1"]
+
+  agent2:
+    build: fixtures/agent2
+    hostname: agent2
+    depends_on:
+      - broker
+    command: ["-b", "mqtt://broker:1883", "-d", "test.vrpc", "-a", "agent2"]
 
   broker:
     build: fixtures/mosquitto
@@ -29,3 +21,24 @@ services:
     environment:
       - MOSQUITTO_USERNAME=Erwin
       - MOSQUITTO_PASSWORD=12345
+
+  client:
+    image: node:12.16.1-alpine
+    hostname: client
+    container_name: ${TEST_CONT}
+    volumes:
+      - ./fixtures/client:/app
+    working_dir: /app
+    depends_on:
+      - broker
+    command: [
+      "/app/wait-for.sh",
+      "broker:1883",
+      "--",
+      "node_modules/.bin/mocha",
+      "test-cpp-agent.js",
+      "--colors",
+      "--exit",
+      "--timeout",
+      "10000"
+    ]
