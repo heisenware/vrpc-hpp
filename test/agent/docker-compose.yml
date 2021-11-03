@@ -38,4 +38,4 @@ services:
       - --colors
       - --exit
       - --timeout
-      - 10000
+      - "10000"
