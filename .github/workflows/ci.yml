@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: test
+        working-directory: test/agent
     steps:
       - uses: actions/checkout@master
       - run: ./test.sh
