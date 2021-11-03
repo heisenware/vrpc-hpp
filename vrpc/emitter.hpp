@@ -22,8 +22,7 @@ class Emitter {
   template <typename T>
   void off(const std::string& event, const cb_t<T>& listener) {
     auto it = _listeners.find(event);
-    if (it == _listeners.end())
-      return;
+    if (it == _listeners.end()) return;
     const auto& funcs = it->second;
     std::vector<boost::any> filtered;
     for (const auto& func : funcs) {
@@ -37,8 +36,7 @@ class Emitter {
 
   void off(const std::string& event, const cb_void_t& listener) {
     auto it = _listeners.find(event);
-    if (it == _listeners.end())
-      return;
+    if (it == _listeners.end()) return;
     const auto& funcs = it->second;
     std::vector<boost::any> filtered;
     for (const auto& func : funcs) {
@@ -52,16 +50,14 @@ class Emitter {
 
   void remove_all_listeners(const std::string& event) {
     auto it = _listeners.find(event);
-    if (it == _listeners.end())
-      return;
+    if (it == _listeners.end()) return;
     it->second.clear();
   }
 
   template <typename T>
   void emit(const std::string& event, const T& data) {
     auto it = _listeners.find(event);
-    if (it == _listeners.end())
-      return;
+    if (it == _listeners.end()) return;
     const auto& funcs = it->second;
     for (const auto& func : funcs) {
       boost::any_cast<cb_t<T>>(func)(data);
@@ -70,8 +66,7 @@ class Emitter {
 
   void emit(const std::string& event) {
     auto it = _listeners.find(event);
-    if (it == _listeners.end())
-      return;
+    if (it == _listeners.end()) return;
     const auto& funcs = it->second;
     for (const auto& func : funcs) {
       boost::any_cast<cb_void_t>(func)();
