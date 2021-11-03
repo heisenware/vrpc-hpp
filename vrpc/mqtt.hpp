@@ -4,6 +4,15 @@
 // (See accompanying file LICENSE_1_0.txt or copy at
 // http://www.boost.org/LICENSE_1_0.txt)
 
+/*******************************************************************************
+
+NOTE:  The original code was slightly changed. Include pathes and logging were
+       adapted for a more convenient usage within VRPC.
+
+Dr. Burkhard C. Heisen
+
+*******************************************************************************/
+
 #include <vrpc/mqtt/config.hpp>  // should be top to configure boost::variant limit
 #include <vrpc/mqtt/client.hpp>
 #include <vrpc/mqtt/sync_client.hpp>
