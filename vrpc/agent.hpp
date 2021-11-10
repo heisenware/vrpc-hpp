@@ -82,6 +82,7 @@ class VrpcAgent {
     std::cout << "Domain : " << _domain << std::endl;
     std::cout << "Agent  : " << _agent << std::endl;
     std::cout << "Broker : " << _url << std::endl;
+    std::cout << "Connecting to message broker... " << std::flush;
 
     // setup client
     if (!_username.empty()) {
@@ -390,8 +391,7 @@ class VrpcAgent {
 
   std::string generate_client_id() {
     const std::string h = _domain + _agent;
-    std::to_string(std::hash<std::string>{}(h)).substr(0, 18);
-    return "vrpca" + std::to_string(std::hash<std::string>{}(h)).substr(0, 18);
+    return "va" + std::to_string(std::hash<std::string>{}(h)).substr(0, 21);
   }
 
   void publish_agent_info() {
