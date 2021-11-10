@@ -28,7 +28,7 @@ cp -rf ../../vrpc fixtures/agent1/
 cp -rf ../../vrpc fixtures/agent2/
 
 # run the composed services
-docker-compose build --no-cache && docker-compose -p ${PROJECT} up -d
+docker-compose build && docker-compose -p ${PROJECT} up -d
 
 if [ $? -ne 0 ]; then
   printf "${RED}Docker Compose Failed (${TEST_CONT})${NC}\n"

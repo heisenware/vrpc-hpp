@@ -12,7 +12,7 @@ __\/\\\_______\/\\\__/\\\///////\\\___\/\\\/////////\\\____/\\\////////__
 
 Non-intrusively binds any C++ code and provides access in form of asynchronous
 remote procedural callbacks (RPC).
-Author: Dr. Burkhard C. Heisen (https://github.com/bheisen/vrpc)
+Author: Dr. Burkhard C. Heisen (https://github.com/heisenware/vrpc-hpp)
 
 
 Licensed under the MIT License <http://opensource.org/licenses/MIT>.
@@ -41,8 +41,8 @@ SOFTWARE.
 #ifndef VRPC_ADAPTER_HPP
 #define VRPC_ADAPTER_HPP
 
-#define VRPC_VERSION_MAJOR 2
-#define VRPC_VERSION_MINOR 6
+#define VRPC_VERSION_MAJOR 3
+#define VRPC_VERSION_MINOR 0
 #define VRPC_VERSION_PATCH 0
 
 #include <cstdint>
@@ -67,10 +67,12 @@ SOFTWARE.
 
 #ifdef VRPC_DEBUG
 #define _VRPC_DEBUG \
-  if (1) std::cout << "vrpc::" << __func__ << "\t"
+  if (1)            \
+  std::cout << "vrpc::" << __func__ << "\t"
 #else
 #define _VRPC_DEBUG \
-  if (0) std::cout << "vrpc::" << __func__ << "\t"
+  if (0)            \
+  std::cout << "vrpc::" << __func__ << "\t"
 #endif
 
 // Add std::function to json's serializable types
@@ -101,28 +103,29 @@ inline T& init() {
   return t;
 }
 
-inline void pack_r(vrpc::json& json, char i) {}
+inline void pack_r(json&) {}
 
 template <class Tfirst, class... Trest>
-inline void pack_r(vrpc::json& json,
-                   char i,
-                   const Tfirst& first,
-                   const Trest&... rest) {
-  char name[] = {'_', '\0', '\0', '\0'};
-  name[1] = i;
-  json[name] = first;
-  detail::pack_r(json, i + 1, rest...);
+inline void pack_r(json& arr, const Tfirst& first, const Trest&... rest) {
+  arr.push_back(first);
+  detail::pack_r(arr, rest...);
 }
 }  // namespace detail
 
 /**
- * Pack the parameters into a json object.
- * @param json Will be filled with keys _1, _2, etc. and associated values
- * @param args Any type and number of arguments forming the values
+ * Packs the arguments into a json object.
+ *
+ * @param args The arguments
+ * @return json array filled with arguments
+ *
+ * And by the way: that's the "V" in VRPC (variadic template based arguments)
+ * This feature that was introduced in C++11 sparked the idea for this library
  */
 template <class... Ts>
-inline void pack(vrpc::json& json, const Ts&... args) {
-  detail::pack_r(json, '1', args...);
+inline json pack(const Ts&... args) {
+  json arr;
+  detail::pack_r(arr, args...);
+  return arr;
 }
 
 namespace detail {
@@ -218,7 +221,7 @@ auto variadic_bind(const Func& f)
   return detail::variadic_bind(detail::build_indices<sizeof...(Args)>{}, f);
 }
 
-typedef std::function<void(const vrpc::json&)> CallbackHandler;
+typedef std::function<void(const json&)> CallbackHandler;
 
 struct Callback {
   static void register_callback_handler(const CallbackHandler& handler) {
@@ -235,23 +238,21 @@ template <typename R, typename... Args>
 struct CallbackT<std::function<R(Args...)>>
     : public std::enable_shared_from_this<CallbackT<std::function<R(Args...)>>>,
       public vrpc::Callback {
-  vrpc::json m_json;
-  std::string m_callback_id;
+  json _json;
+  std::string _callback_id;
 
-  CallbackT(const vrpc::json& json, const std::string key)
-      : m_json(json), m_callback_id(json["data"][key].get<std::string>()) {
-    _VRPC_DEBUG << "Constructed with: " << m_json << " and " << m_callback_id
+  CallbackT(const json& json, int index)
+      : _json(json), _callback_id(json["a"][index].get<std::string>()) {
+    _VRPC_DEBUG << "Constructed with: " << _json << " and " << _callback_id
                 << std::endl;
   }
 
   void wrapper(Args... args) {
-    vrpc::json data;
-    pack(data, args...);
-    m_json["data"] = data;
-    m_json["id"] = m_callback_id;
-    _VRPC_DEBUG << "Triggering callback: " << m_callback_id
-                << " with payload: " << data << std::endl;
-    detail::init<CallbackHandler>()(m_json);
+    _json["a"] = pack(args...);
+    _json["i"] = _callback_id;
+    _VRPC_DEBUG << "Triggering callback: " << _callback_id
+                << " with payload: " << _json["a"] << std::endl;
+    detail::init<CallbackHandler>()(_json);
   }
 
   auto bind_wrapper() {
@@ -272,86 +273,79 @@ struct is_std_function<std::function<void(Args...)>> : std::true_type {};
 template <typename... Args>
 struct is_std_function<const std::function<void(Args...)>&> : std::true_type {};
 
-template <char C, typename... Args>
+template <int I, typename... Args>
 struct unpack_impl;
 
 /* This specialization will remove reference and CV qualifier and bring
- * back the recursion to the standard path using vrpc::json::get().
- * Really, it should use vrpc::json::get_ref() in combination with
+ * back the recursion to the standard path using json::get().
+ * Really, it should use json::get_ref() in combination with
  * std::tie(), however currently json does not support custom types in refs.
  */
-template <char C, typename A, typename... Args>
-struct unpack_impl<C, A, Args...> {
+template <int I, typename A, typename... Args>
+struct unpack_impl<I, A, Args...> {
   template <typename T = A,
             typename std::enable_if<std::is_reference<T>::value &&
                                         !is_std_function<T>::value,
                                     int>::type = 0>
-  static auto unpack(vrpc::json& j) -> decltype(std::tuple_cat(
+  static auto unpack(json& j) -> decltype(std::tuple_cat(
       std::make_tuple(std::declval<no_ref_no_const<T>>()),
-      unpack_impl<C + 1, Args...>::unpack(j))) {
-    // length 4 for better assembly alignment
-    constexpr const char key[] = {'_', C, '\0', '\0'};
+      unpack_impl<I + 1, Args...>::unpack(j))) {
     typedef typename std::remove_const<
         typename std::remove_reference<T>::type>::type T_no_ref_no_const;
-    return std::tuple_cat(
-        std::make_tuple(j["data"][key].get<T_no_ref_no_const>()),
-        unpack_impl<C + 1, Args...>::unpack(j));
+    return std::tuple_cat(std::make_tuple(j["a"][I].get<T_no_ref_no_const>()),
+                          unpack_impl<I + 1, Args...>::unpack(j));
   }
 
   template <typename T = A,
             typename std::enable_if<!std::is_reference<T>::value &&
                                         !is_std_function<T>::value,
                                     int>::type = 0>
-  static auto unpack(vrpc::json& j)
+  static auto unpack(json& j)
       -> decltype(std::tuple_cat(std::make_tuple(std::declval<T>()),
-                                 unpack_impl<C + 1, Args...>::unpack(j))) {
-    constexpr const char key[] = {'_', C, '\0', '\0'};
-    return std::tuple_cat(std::make_tuple(j["data"][key].get<T>()),
-                          unpack_impl<C + 1, Args...>::unpack(j));
+                                 unpack_impl<I + 1, Args...>::unpack(j))) {
+    return std::tuple_cat(std::make_tuple(j["a"][I].get<T>()),
+                          unpack_impl<I + 1, Args...>::unpack(j));
   }
 
   template <typename T = A,
             typename std::enable_if<is_std_function<T>::value, int>::type = 0>
-  static auto unpack(vrpc::json& j) {
-    constexpr const char key[] = {'_', C, '\0', '\0'};
-    auto ptr = std::make_shared<CallbackT<no_ref_no_const<T>>>(j, key);
+  static auto unpack(json& j) {
+    // TODO hand over the index as template parameter
+    auto ptr = std::make_shared<CallbackT<no_ref_no_const<T>>>(j, I);
     return std::tuple_cat(std::make_tuple(ptr->bind_wrapper()),
-                          unpack_impl<C + 1, Args...>::unpack(j));
+                          unpack_impl<I + 1, Args...>::unpack(j));
   }
 };
 
-template <char C, typename A>
-struct unpack_impl<C, A> {
+template <int I, typename A>
+struct unpack_impl<I, A> {
   template <typename T = A,
             typename std::enable_if<std::is_reference<T>::value &&
                                         !is_std_function<T>::value,
                                     int>::type = 0>
-  static std::tuple<no_ref_no_const<T>> unpack(vrpc::json& j) {
-    constexpr const char key[] = {'_', C, '\0', '\0'};
-    return std::make_tuple(j["data"][key].get<no_ref_no_const<T>>());
+  static std::tuple<no_ref_no_const<T>> unpack(json& j) {
+    return std::make_tuple(j["a"][I].get<no_ref_no_const<T>>());
   }
 
   template <typename T = A,
             typename std::enable_if<!std::is_reference<T>::value &&
                                         !is_std_function<T>::value,
                                     int>::type = 0>
-  static std::tuple<T> unpack(vrpc::json& j) {
-    constexpr const char key[] = {'_', C, '\0', '\0'};
-    return std::make_tuple(j["data"][key].get<T>());
+  static std::tuple<T> unpack(json& j) {
+    return std::make_tuple(j["a"][I].get<T>());
   }
 
   template <typename T = A,
             typename std::enable_if<is_std_function<T>::value, int>::type = 0>
-  static auto unpack(vrpc::json& j) {
-    constexpr const char key[] = {'_', C, '\0', '\0'};
-    auto ptr = std::make_shared<CallbackT<no_ref_no_const<T>>>(j, key);
+  static auto unpack(json& j) {
+    auto ptr = std::make_shared<CallbackT<no_ref_no_const<T>>>(j, I);
     return std::make_tuple(ptr->bind_wrapper());
   }
 };
 
-template <char C>
-struct unpack_impl<C> {
-  static std::tuple<> unpack(vrpc::json&) { return std::tuple<>(); }
+template <int I>
+struct unpack_impl<I> {
+  static std::tuple<> unpack(json&) { return {}; }
 };
 }  // namespace detail
 
@@ -361,9 +355,8 @@ struct unpack_impl<C> {
  * @return std::tuple<Args...>
  */
 template <typename... Args>
-auto unpack(vrpc::json& j)
-    -> decltype(detail::unpack_impl<'1', Args...>::unpack(j)) {
-  return detail::unpack_impl<'1', Args...>::unpack(j);
+auto unpack(json& j) -> decltype(detail::unpack_impl<0, Args...>::unpack(j)) {
+  return detail::unpack_impl<0, Args...>::unpack(j);
 }
 
 namespace detail {
@@ -379,7 +372,7 @@ template <std::size_t I = 0, typename... Args>
     inline typename std::enable_if <
     I<sizeof...(Args), void>::type get_signature(std::string& signature,
                                                  const std::tuple<Args...>& t) {
-  vrpc::json j{{"t", std::get<I>(t)}};
+  json j = {{"t", std::get<I>(t)}};
   signature += j["t"].type_name();
   return get_signature<I + 1, Args...>(signature, t);
 }
@@ -393,7 +386,7 @@ inline std::string get_signature() {
   return signature.empty() ? signature : "-" + signature;
 }
 
-inline std::string get_signature(const vrpc::json& json) {
+inline std::string get_signature(const json& json) {
   std::string signature;
   for (const auto& it : json) {
     signature += it.type_name();
@@ -589,93 +582,92 @@ class Function {
     this->do_bind_instance(Value(instance));
   }
 
-  void call_function(vrpc::json& json) { this->do_call_function(json); }
+  void call_function(json& json) { this->do_call_function(json); }
 
   std::shared_ptr<Function> clone() { return this->do_clone(); }
 
  protected:
   virtual void do_bind_instance(const Value& instance) = 0;
-  virtual void do_call_function(vrpc::json& json) = 0;
+  virtual void do_call_function(json& json) = 0;
   virtual std::shared_ptr<Function> do_clone() = 0;
 };
 
 template <typename Klass, typename Lambda, typename Ret, typename... Args>
 class MemberFunction : public Function {
-  Lambda m_lambda;
-  std::shared_ptr<Klass> m_ptr;
+  Lambda _lambda;
+  std::shared_ptr<Klass> _ptr;
 
  public:
-  MemberFunction(const Lambda& lambda) : m_lambda(lambda) {}
+  MemberFunction(const Lambda& lambda) : _lambda(lambda) {}
 
   virtual ~MemberFunction() = default;
 
   virtual std::shared_ptr<Function> do_clone() {
-    auto ptr = std::make_shared<MemberFunction>(m_lambda);
+    auto ptr = std::make_shared<MemberFunction>(_lambda);
     return std::static_pointer_cast<Function>(ptr);
   }
 
-  virtual void do_call_function(vrpc::json& json) {
+  virtual void do_call_function(json& json) {
     try {
-      json["data"]["r"] =
-          vrpc::call(m_lambda(m_ptr), vrpc::unpack<Args...>(json));
+      json["r"] = vrpc::call(_lambda(_ptr), vrpc::unpack<Args...>(json));
     } catch (const std::exception& e) {
-      json["data"]["e"] = std::string(e.what());
+      json["e"] = std::string(e.what());
     }
   }
 
   virtual void do_bind_instance(const Value& instance) {
-    m_ptr = instance.get<std::shared_ptr<Klass>>();
+    _ptr = instance.get<std::shared_ptr<Klass>>();
   }
 };
 
 template <typename Klass, typename Lambda, typename... Args>
 class MemberFunction<Klass, Lambda, void, Args...> : public Function {
-  Lambda m_lambda;
-  std::shared_ptr<Klass> m_ptr;
+  Lambda _lambda;
+  std::shared_ptr<Klass> _ptr;
 
  public:
-  MemberFunction(const Lambda& lambda) : m_lambda(lambda) {}
+  MemberFunction(const Lambda& lambda) : _lambda(lambda) {}
 
   virtual ~MemberFunction() = default;
 
   virtual std::shared_ptr<Function> do_clone() {
-    auto ptr = std::make_shared<MemberFunction>(m_lambda);
+    auto ptr = std::make_shared<MemberFunction>(_lambda);
     return std::static_pointer_cast<Function>(ptr);
   }
 
-  virtual void do_call_function(vrpc::json& json) {
+  virtual void do_call_function(json& json) {
     try {
-      vrpc::call(m_lambda(m_ptr), vrpc::unpack<Args...>(json));
-      json["data"]["r"] = nullptr;
+      vrpc::call(_lambda(_ptr), vrpc::unpack<Args...>(json));
+      json["r"] = nullptr;
     } catch (const std::exception& e) {
-      json["data"]["e"] = std::string(e.what());
+      json["e"] = std::string(e.what());
     }
   }
 
   virtual void do_bind_instance(const Value& instance) {
-    m_ptr = instance.get<std::shared_ptr<Klass>>();
+    _ptr = instance.get<std::shared_ptr<Klass>>();
   }
 };
 
 template <typename Lambda, typename Ret, typename... Args>
 class StaticFunction : public Function {
-  Lambda m_lambda;
+  Lambda _lambda;
 
  public:
-  StaticFunction(const Lambda& lambda) : m_lambda(lambda) {}
+  StaticFunction(const Lambda& lambda) : _lambda(lambda) {}
 
   virtual ~StaticFunction() = default;
 
   virtual std::shared_ptr<Function> do_clone() {
-    auto ptr = std::make_shared<StaticFunction>(m_lambda);
+    auto ptr = std::make_shared<StaticFunction>(_lambda);
     return std::static_pointer_cast<Function>(ptr);
   }
 
-  virtual void do_call_function(vrpc::json& json) {
+  virtual void do_call_function(json& json) {
     try {
-      json["data"]["r"] = vrpc::call(m_lambda(), vrpc::unpack<Args...>(json));
+      json["r"] = vrpc::call(_lambda(), vrpc::unpack<Args...>(json));
     } catch (const std::exception& e) {
-      json["data"]["e"] = std::string(e.what());
+      json["e"] = std::string(e.what());
     }
   }
 
@@ -686,24 +678,24 @@ class StaticFunction : public Function {
 
 template <typename Lambda, typename... Args>
 class StaticFunction<Lambda, void, Args...> : public Function {
-  Lambda m_lambda;
+  Lambda _lambda;
 
  public:
-  StaticFunction(const Lambda& lambda) : m_lambda(lambda) {}
+  StaticFunction(const Lambda& lambda) : _lambda(lambda) {}
 
   virtual ~StaticFunction() = default;
 
   virtual std::shared_ptr<Function> do_clone() {
-    auto ptr = std::make_shared<StaticFunction>(m_lambda);
+    auto ptr = std::make_shared<StaticFunction>(_lambda);
     return std::static_pointer_cast<Function>(ptr);
   }
 
-  virtual void do_call_function(vrpc::json& json) {
+  virtual void do_call_function(json& json) {
     try {
-      vrpc::call(m_lambda(), vrpc::unpack<Args...>(json));
-      json["data"]["r"] = nullptr;
+      vrpc::call(_lambda(), vrpc::unpack<Args...>(json));
+      json["r"] = nullptr;
     } catch (const std::exception& e) {
-      json["data"]["e"] = std::string(e.what());
+      json["e"] = std::string(e.what());
     }
   }
 
@@ -714,23 +706,23 @@ class StaticFunction<Lambda, void, Args...> : public Function {
 
 template <typename Lambda, typename... Args>
 class ConstructorFunction : public Function {
-  Lambda m_lambda;
+  Lambda _lambda;
 
  public:
-  ConstructorFunction(const Lambda& lambda) : m_lambda(lambda) {}
+  ConstructorFunction(const Lambda& lambda) : _lambda(lambda) {}
 
   virtual ~ConstructorFunction() = default;
 
   virtual std::shared_ptr<Function> do_clone() {
-    auto ptr = std::make_shared<ConstructorFunction>(m_lambda);
+    auto ptr = std::make_shared<ConstructorFunction>(_lambda);
     return std::static_pointer_cast<Function>(ptr);
   }
 
-  virtual void do_call_function(vrpc::json& json) {
+  virtual void do_call_function(json& json) {
     try {
-      json["data"]["r"] = vrpc::call(m_lambda, vrpc::unpack<Args...>(json));
+      json["r"] = vrpc::call(_lambda, vrpc::unpack<Args...>(json));
     } catch (const std::exception& e) {
-      json["data"]["e"] = std::string(e.what());
+      json["e"] = std::string(e.what());
     }
   }
 
@@ -794,26 +786,25 @@ class LocalFactory {
   typedef std::unordered_map<std::string, std::shared_ptr<Function>>
       StringFunctionMap;
   typedef std::unordered_map<std::string, StringFunctionMap> FunctionRegistry;
-  typedef std::unordered_map<std::string, std::string> NamedInstances;
-  typedef std::unordered_map<std::string, vrpc::json> MetaData;
+  typedef std::unordered_map<std::string, std::string> SharedInstances;
+  typedef std::unordered_map<std::string, json> MetaData;
 
   // Maps: class_name => function_name => functionCallback
-  FunctionRegistry m_class_function_registry;
+  FunctionRegistry _class_function_registry;
   // Maps: instanceId => function_name => functionCallback
-  FunctionRegistry m_function_registry;
+  FunctionRegistry _function_registry;
   // Maps: instanceId => instanceObj
-  StringAnyMap m_instances;
+  StringAnyMap _instances;
   // Maps: instanceId => class_name
-  NamedInstances m_named_instances;
+  SharedInstances _shared_instances;
   // Optional schema information
-  MetaData m_meta_data;
+  MetaData _meta_data;
 
  public:
   template <typename Klass, typename... Args>
   static void register_constructor(const std::string& class_name) {
-    LocalFactory::inject_create_function<Klass, Args...>(class_name);
-    LocalFactory::inject_create_named_function<Klass, Args...>(class_name);
-    LocalFactory::inject_get_named_function<Klass>(class_name);
+    LocalFactory::inject_create_isolated_function<Klass, Args...>(class_name);
+    LocalFactory::inject_create_shared_function<Klass, Args...>(class_name);
     LocalFactory::inject_delete_function<Klass>(class_name);
   }
 
@@ -831,7 +822,7 @@ class LocalFactory {
         std::make_shared<MemberFunction<Klass, decltype(func), Ret, Args...>>(
             func);
     detail::init<LocalFactory>()
-        .m_class_function_registry[class_name][function_name] =
+        ._class_function_registry[class_name][function_name] =
         std::static_pointer_cast<Function>(funcT);
     _VRPC_DEBUG << "Registered: " << class_name << "::" << function_name
                 << std::endl;
@@ -843,8 +834,7 @@ class LocalFactory {
     auto func = []() { return vrpc::variadic_bind<Func, Args...>(f); };
     auto funcT =
         std::make_shared<StaticFunction<decltype(func), Ret, Args...>>(func);
-    detail::init<LocalFactory>()
-        .m_function_registry[class_name][function_name] =
+    detail::init<LocalFactory>()._function_registry[class_name][function_name] =
         std::static_pointer_cast<Function>(funcT);
     _VRPC_DEBUG << "Registered: " << class_name << "::" << function_name
                 << std::endl;
@@ -856,7 +846,7 @@ class LocalFactory {
                                  const json& params,
                                  const json& ret) {
     LocalFactory& rf = detail::init<LocalFactory>();
-    vrpc::json& j = rf.m_meta_data[class_name];
+    json& j = rf._meta_data[class_name];
     j[function_name]["description"] = description;
     j[function_name]["params"] = params;
     j[function_name]["ret"] = ret;
@@ -864,8 +854,9 @@ class LocalFactory {
 
   static std::vector<std::string> get_instances(const std::string& class_name) {
     std::vector<std::string> instances;
-    for (const auto& kv : detail::init<LocalFactory>().m_named_instances) {
-      if (kv.second == class_name) instances.push_back(kv.first);
+    for (const auto& kv : detail::init<LocalFactory>()._shared_instances) {
+      if (kv.second == class_name)
+        instances.push_back(kv.first);
     }
     return instances;
   }
@@ -874,8 +865,8 @@ class LocalFactory {
       const std::string& class_name) {
     std::vector<std::string> functions;
     const auto& it =
-        detail::init<LocalFactory>().m_class_function_registry.find(class_name);
-    if (it != detail::init<LocalFactory>().m_class_function_registry.end()) {
+        detail::init<LocalFactory>()._class_function_registry.find(class_name);
+    if (it != detail::init<LocalFactory>()._class_function_registry.end()) {
       for (const auto& kv : it->second) {
         functions.push_back(kv.first);
       }
@@ -887,8 +878,8 @@ class LocalFactory {
       const std::string& class_name) {
     std::vector<std::string> functions;
     const auto& it =
-        detail::init<LocalFactory>().m_function_registry.find(class_name);
-    if (it != detail::init<LocalFactory>().m_function_registry.end()) {
+        detail::init<LocalFactory>()._function_registry.find(class_name);
+    if (it != detail::init<LocalFactory>()._function_registry.end()) {
       for (const auto& kv : it->second) {
         functions.push_back(kv.first);
       }
@@ -899,7 +890,7 @@ class LocalFactory {
   static std::vector<std::string> get_classes() {
     std::vector<std::string> classes;
     for (const auto& kv :
-         detail::init<LocalFactory>().m_class_function_registry) {
+         detail::init<LocalFactory>()._class_function_registry) {
       classes.push_back(kv.first);
     }
     return classes;
@@ -907,34 +898,33 @@ class LocalFactory {
 
   static json get_meta_data(const std::string& class_name) {
     LocalFactory& rf = detail::init<LocalFactory>();
-    return rf.m_meta_data[class_name];
+    return rf._meta_data[class_name];
   }
 
   static std::string call(const std::string& jsonString) {
-    vrpc::json json;
-    json = vrpc::json::parse(jsonString);
+    json json;
+    json = json::parse(jsonString);
     LocalFactory::call(json);
     return json.dump();
   }
 
-  static void call(vrpc::json& json) {
-    const std::string& context = json["context"];
-    std::string function = json["method"];
-    vrpc::json& args = json["data"];
-    function += vrpc::get_signature(args);
-    _VRPC_DEBUG << "Calling function: " << function << " with payload: " << args
-                << std::endl;
-    auto it_t = detail::init<LocalFactory>().m_function_registry.find(context);
-    if (it_t != detail::init<LocalFactory>().m_function_registry.end()) {
+  static void call(json& json) {
+    const std::string context = json["c"].get<std::string>();
+    std::string function = json["f"].get<std::string>();
+    function += vrpc::get_signature(json["a"]);
+    _VRPC_DEBUG << "Calling function: " << function
+                << " with payload: " << json["a"] << std::endl;
+    auto it_t = detail::init<LocalFactory>()._function_registry.find(context);
+    if (it_t != detail::init<LocalFactory>()._function_registry.end()) {
       auto it_f = it_t->second.find(function);
       if (it_f != it_t->second.end()) {
         it_f->second->call_function(json);
         return;
       }
-      json["data"]["e"] = "Could not find function: " + function;
+      json["e"] = "Could not find function: " + function;
       return;
     }
-    json["data"]["e"] = "Could not find context: " + context;
+    json["e"] = "Could not find context: " + context;
   }
 
   static void load_bindings(const std::string& path) {
@@ -965,76 +955,60 @@ class LocalFactory {
   }
 
   template <typename Klass, typename... Args>
-  static void inject_create_function(const std::string& class_name) {
-    auto func = [=](Args... args) {
+  static void inject_create_isolated_function(const std::string& class_name) {
+    auto func = [=](const std::string& instance_id, Args... args) {
       LocalFactory& rf = detail::init<LocalFactory>();
+      const auto& it = rf._instances.find(instance_id);
+      if (it != rf._instances.end())
+        return instance_id;
       // Create instance
       auto ptr = std::shared_ptr<Klass>(new Klass(args...));
-      // Generate instance_id
-      const std::string instance_id = create_instance_id(ptr);
       // Bind member functions
-      for (auto& i : rf.m_class_function_registry[class_name]) {
+      for (auto& i : rf._class_function_registry[class_name]) {
         auto functionCallback = i.second->clone();
         functionCallback->bind_instance(ptr);
-        rf.m_function_registry[instance_id][i.first] = functionCallback;
+        rf._function_registry[instance_id][i.first] = functionCallback;
       }
       // Keep instance alive by saving the shared_ptr
-      rf.m_instances[instance_id] = Value(ptr);
+      rf._instances[instance_id] = Value(ptr);
       return instance_id;
     };
-    auto funcT =
-        std::make_shared<ConstructorFunction<decltype(func), Args...>>(func);
-    const std::string func_name("__create__" + vrpc::get_signature<Args...>());
-    detail::init<LocalFactory>().m_function_registry[class_name][func_name] =
+    auto funcT = std::make_shared<
+        ConstructorFunction<decltype(func), const std::string&, Args...>>(func);
+    const std::string func_name("__createIsolated__" +
+                                vrpc::get_signature<std::string, Args...>());
+    detail::init<LocalFactory>()._function_registry[class_name][func_name] =
         std::static_pointer_cast<Function>(funcT);
     _VRPC_DEBUG << "Registered: " << class_name << "::" << func_name
                 << std::endl;
   }
 
   template <typename Klass, typename... Args>
-  static void inject_create_named_function(const std::string& class_name) {
+  static void inject_create_shared_function(const std::string& class_name) {
     auto func = [=](const std::string& instance_id, Args... args) {
       LocalFactory& rf = detail::init<LocalFactory>();
-      const auto& it = rf.m_instances.find(instance_id);
-      if (it != rf.m_instances.end()) return instance_id;
+      const auto& it = rf._instances.find(instance_id);
+      if (it != rf._instances.end())
+        return instance_id;
       // Create instance
       auto ptr = std::shared_ptr<Klass>(new Klass(args...));
       // Bind member functions
-      for (auto& i : rf.m_class_function_registry[class_name]) {
+      for (auto& i : rf._class_function_registry[class_name]) {
         auto functionCallback = i.second->clone();
         functionCallback->bind_instance(ptr);
-        rf.m_function_registry[instance_id][i.first] = functionCallback;
+        rf._function_registry[instance_id][i.first] = functionCallback;
       }
       // Keep instance alive by saving the shared_ptr
-      rf.m_instances[instance_id] = Value(ptr);
-      // Store named instance
-      rf.m_named_instances.insert({instance_id, class_name});
+      rf._instances[instance_id] = Value(ptr);
+      // Store shared instance
+      rf._shared_instances.insert({instance_id, class_name});
       return instance_id;
     };
     auto funcT = std::make_shared<
         ConstructorFunction<decltype(func), const std::string&, Args...>>(func);
-    const std::string func_name("__createNamed__" +
+    const std::string func_name("__createShared__" +
                                 vrpc::get_signature<std::string, Args...>());
-    detail::init<LocalFactory>().m_function_registry[class_name][func_name] =
-        std::static_pointer_cast<Function>(funcT);
-    _VRPC_DEBUG << "Registered: " << class_name << "::" << func_name
-                << std::endl;
-  }
-
-  template <typename Klass>
-  static void inject_get_named_function(const std::string& class_name) {
-    auto func = [=](const std::string& instance_id) {
-      LocalFactory& rf = detail::init<LocalFactory>();
-      const auto& it = rf.m_instances.find(instance_id);
-      if (it != rf.m_instances.end()) return instance_id;
-      throw std::runtime_error("Instance with id: " + instance_id +
-                               " does not exist");
-    };
-    auto funcT = std::make_shared<
-        ConstructorFunction<decltype(func), const std::string&>>(func);
-    const std::string func_name("__getNamed__" +
-                                vrpc::get_signature<std::string>());
-    detail::init<LocalFactory>().m_function_registry[class_name][func_name] =
+    detail::init<LocalFactory>()._function_registry[class_name][func_name] =
         std::static_pointer_cast<Function>(funcT);
     _VRPC_DEBUG << "Registered: " << class_name << "::" << func_name
                 << std::endl;
@@ -1044,18 +1018,19 @@ class LocalFactory {
   static void inject_delete_function(const std::string& class_name) {
     auto func = [=](const std::string& instance_id) {
       LocalFactory& rf = detail::init<LocalFactory>();
-      const auto& it = rf.m_instances.find(instance_id);
-      if (it == rf.m_instances.end()) return false;
-      rf.m_function_registry.erase(instance_id);
-      rf.m_instances.erase(instance_id);
-      rf.m_named_instances.erase(instance_id);
+      const auto& it = rf._instances.find(instance_id);
+      if (it == rf._instances.end())
+        return false;
+      rf._function_registry.erase(instance_id);
+      rf._instances.erase(instance_id);
+      rf._shared_instances.erase(instance_id);
       return true;
     };
     auto funcT = std::make_shared<
         ConstructorFunction<decltype(func), const std::string&>>(func);
     const std::string func_name("__delete__" +
                                 vrpc::get_signature<std::string>());
-    detail::init<LocalFactory>().m_function_registry[class_name][func_name] =
+    detail::init<LocalFactory>()._function_registry[class_name][func_name] =
         std::static_pointer_cast<Function>(funcT);
     _VRPC_DEBUG << "Registered: " << class_name << "::" << func_name
                 << std::endl;
@@ -1083,7 +1058,7 @@ struct CtorXRegistrar {
                  const ret<std::string>& ret,
                  const std::vector<param> params = {}) {
     LocalFactory::register_constructor<Klass, Args...>(class_name);
-    const std::string ctor_name("__createNamed__" +
+    const std::string ctor_name("__createShared__" +
                                 vrpc::get_signature<std::string, Args...>());
     json jp;
     for (const auto& param : params) {

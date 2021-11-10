@@ -1,7 +1,7 @@
 'use strict'
 
 /* global describe, context, before, after, it */
-const { VrpcRemote } = require('vrpc')
+const { VrpcClient } = require('vrpc')
 const assert = require('assert')
 const sinon = require('sinon')
 
@@ -17,7 +17,7 @@ describe('Testing C++ agent using Node.js client', () => {
       // make sure the agents have connected (3 seconds reconnect interval)
       await new Promise(resolve => setTimeout(resolve, 3000))
 
-      client = new VrpcRemote({
+      client = new VrpcClient({
         broker: 'mqtt://broker',
         domain: 'test.vrpc',
         timeout: 1000
@@ -70,14 +70,13 @@ describe('Testing C++ agent using Node.js client', () => {
             'onValue-string'
           ],
           staticFunctions: [
-            '__create__-number',
+            'staticCallback-stringnumber',
+            '__createIsolated__-stringnumber',
             'staticIncrement-number',
             '__delete__-string',
-            '__createNamed__-stringnumber',
-            '__getNamed__-string',
-            'staticCallback-stringnumber',
-            '__createNamed__-string',
-            '__create__'
+            '__createShared__-string',
+            '__createShared__-stringnumber',
+            '__createIsolated__-string'
           ],
           meta: null
         })
@@ -90,7 +89,7 @@ describe('Testing C++ agent using Node.js client', () => {
       assert.strictEqual(agents.length, 2)
       assert(agents.includes('agent1'))
       assert(agents.includes('agent2'))
-      const tmpClient = new VrpcRemote({
+      const tmpClient = new VrpcClient({
         broker: 'mqtt://broker',
         domain: 'test.vrpc'
       })
@@ -121,7 +120,7 @@ describe('Testing C++ agent using Node.js client', () => {
   describe('(2) proxy creation and deletion', () => {
     let client
     before(async () => {
-      client = new VrpcRemote({
+      client = new VrpcClient({
         broker: 'mqtt://broker',
         domain: 'test.vrpc',
         timeout: 5000
@@ -144,19 +143,21 @@ describe('Testing C++ agent using Node.js client', () => {
         client.off('class', classSpy)
         client.off('instanceNew', classSpy)
       })
-      it('should create an anonymous proxy using constructor defaults', async () => {
+      it('should create an isolated proxy using constructor defaults', async () => {
         proxy1 = await client.create({
           agent: 'agent1',
-          className: 'Foo'
+          className: 'Foo',
+          isIsolated: true
         })
         const value = await proxy1.increment()
         assert.strictEqual(value, 1)
       })
-      it('should create another anonymous proxy using custom arguments', async () => {
+      it('should create another isolated proxy using custom arguments', async () => {
         proxy2 = await client.create({
           agent: 'agent1',
           className: 'Foo',
-          args: [41]
+          args: [41],
+          isIsolated: true
         })
         const value = await proxy2.increment()
         assert.strictEqual(value, 42)
@@ -170,8 +171,8 @@ describe('Testing C++ agent using Node.js client', () => {
         })
         assert.strictEqual(instances.length, 0)
       })
-      // FIXME Explicit deletion of anonymous proxies is not yet implemented
-      it.skip('should delete the anonymous instances', async () => {
+      // FIXME Explicit deletion of isolated proxies is not yet implemented
+      it.skip('should delete the isolated instances', async () => {
         const result1 = await client.delete(proxy1)
         const result2 = await client.delete(proxy2)
         assert.strictEqual(result1, true)
@@ -195,7 +196,7 @@ describe('Testing C++ agent using Node.js client', () => {
         client.off('instanceNew', instanceNewSpy)
         client.off('instanceGone', instanceGoneSpy)
       })
-      it('should create a named proxy using constructor defaults', async () => {
+      it('should create a shared proxy using constructor defaults', async () => {
         proxy1 = await client.create({
           agent: 'agent1',
           className: 'Foo',
@@ -204,7 +205,7 @@ describe('Testing C++ agent using Node.js client', () => {
         const value = await proxy1.increment()
         assert.strictEqual(value, 1)
       })
-      it('should create another named proxy using custom arguments', async () => {
+      it('should create another shared proxy using custom arguments', async () => {
         proxy2 = await client.create({
           agent: 'agent1',
           className: 'Foo',
@@ -221,16 +222,20 @@ describe('Testing C++ agent using Node.js client', () => {
           agent: 'agent1',
           className: 'Foo',
           instances: ['instance1'],
-          memberFunctions: ['callback-stringnumber', 'reset', 'increment', 'onValue-string'],
+          memberFunctions: [
+            'callback-stringnumber',
+            'reset',
+            'increment',
+            'onValue-string'
+          ],
           staticFunctions: [
-            '__create__-number',
+            'staticCallback-stringnumber',
+            '__createIsolated__-stringnumber',
             'staticIncrement-number',
             '__delete__-string',
-            '__createNamed__-stringnumber',
-            '__getNamed__-string',
-            'staticCallback-stringnumber',
-            '__createNamed__-string',
-            '__create__'
+            '__createShared__-string',
+            '__createShared__-stringnumber',
+            '__createIsolated__-string'
           ],
           meta: null
         })
@@ -248,7 +253,7 @@ describe('Testing C++ agent using Node.js client', () => {
         })
         assert.deepStrictEqual(instances, ['instance2', 'instance1'])
       })
-      it('should delete the named instances', async () => {
+      it('should delete the shared instances', async () => {
         const result1 = await client.delete('instance1')
         assert.strictEqual(result1, true)
         assert.strictEqual(classSpy.callCount, 3)
@@ -275,7 +280,7 @@ describe('Testing C++ agent using Node.js client', () => {
   describe('(3) remote function calls', () => {
     let client
     before(async () => {
-      client = new VrpcRemote({
+      client = new VrpcClient({
         broker: 'mqtt://broker',
         domain: 'test.vrpc'
       })
