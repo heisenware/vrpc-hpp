@@ -146,7 +146,7 @@ std::string Bar::_random() const {
 }
 ```
 
-## STEP 2: Make it remotely accessible
+## STEP 2: Make it accessible from remote
 
 We are going to produce an executable that starts an agent and sits waiting
 until it receives remote requests to call functions. Hence, we have to provide
