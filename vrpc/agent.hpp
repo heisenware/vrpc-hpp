@@ -391,7 +391,7 @@ class VrpcAgent {
 
   std::string generate_client_id() {
     const std::string h = _domain + _agent;
-    return "va" + std::to_string(std::hash<std::string>{}(h)).substr(0, 21);
+    return "va3" + std::to_string(std::hash<std::string>{}(h)).substr(0, 20);
   }
 
   void publish_agent_info() {
