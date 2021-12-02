@@ -373,6 +373,7 @@ template <std::size_t I = 0, typename... Args>
     I<sizeof...(Args), void>::type get_signature(std::string& signature,
                                                  const std::tuple<Args...>& t) {
   json j = {{"t", std::get<I>(t)}};
+  if (!signature.empty()) signature += ":";
   signature += j["t"].type_name();
   return get_signature<I + 1, Args...>(signature, t);
 }
@@ -389,6 +390,7 @@ inline std::string get_signature() {
 inline std::string get_signature(const json& json) {
   std::string signature;
   for (const auto& it : json) {
+    if (!signature.empty()) signature += ":";
     signature += it.type_name();
   }
   return signature.empty() ? signature : "-" + signature;

@@ -64,18 +64,18 @@ describe('Testing C++ agent using Node.js client', () => {
           className: 'Foo',
           instances: [],
           memberFunctions: [
-            'callback-stringnumber',
+            'callback-string:number',
             'reset',
             'increment',
             'onValue-string'
           ],
           staticFunctions: [
-            'staticCallback-stringnumber',
-            '__createIsolated__-stringnumber',
+            '__createShared__-string:number',
+            '__createIsolated__-string:number',
+            'staticCallback-string:number',
             'staticIncrement-number',
             '__delete__-string',
             '__createShared__-string',
-            '__createShared__-stringnumber',
             '__createIsolated__-string'
           ],
           meta: null
@@ -223,18 +223,18 @@ describe('Testing C++ agent using Node.js client', () => {
           className: 'Foo',
           instances: ['instance1'],
           memberFunctions: [
-            'callback-stringnumber',
+            'callback-string:number',
             'reset',
             'increment',
             'onValue-string'
           ],
           staticFunctions: [
-            'staticCallback-stringnumber',
-            '__createIsolated__-stringnumber',
+            '__createShared__-string:number',
+            '__createIsolated__-string:number',
+            'staticCallback-string:number',
             'staticIncrement-number',
             '__delete__-string',
             '__createShared__-string',
-            '__createShared__-stringnumber',
             '__createIsolated__-string'
           ],
           meta: null
