@@ -14,7 +14,7 @@ remotely available.
 
 ```cpp
 struct Options {
-  std::string domain = "public.vrpc";
+  std::string domain = "vrpc";
   std::string agent;
   std::string token;
   std::string plugin;

@@ -1,3 +1,7 @@
+#ifdef VRPC_USE_TLS
+#define MQTT_USE_TLS
+#endif
+
 #include <bitset>
 #include <iomanip>
 #include <iostream>
@@ -36,12 +40,25 @@ class VrpcAgent {
       IsolatedInstances;
   IsolatedInstances _isolated_instances;
 
+#ifdef VRPC_USE_TLS
+
+  typedef std::shared_ptr<mqtt::callable_overlay<mqtt::sync_client<
+      mqtt::tcp_endpoint<mqtt::tls::stream<as::ip::tcp::socket>,
+                         as::io_context::strand>>>>
+      TlsClient;
+
+  TlsClient _client;
+
+#else
+
   // mqtt client
   typedef std::shared_ptr<mqtt::callable_overlay<mqtt::sync_client<
       mqtt::tcp_endpoint<as::ip::tcp::socket, as::io_context::strand>>>>
       Client;
 
   Client _client;
+
+#endif
 
   using packet_id_t =
       typename std::remove_reference_t<decltype(*_client)>::packet_id_t;
@@ -58,8 +75,12 @@ class VrpcAgent {
     std::string token;
     std::string version;
     std::string plugin;
-    std::string domain = "public.vrpc";
+    std::string domain = "vrpc";
+#ifdef VRPC_USE_TLS
+    std::string broker = "ssl://vrpc.io:8883";
+#else
     std::string broker = "tcp://vrpc.io:1883";
+#endif
   };
 
   static std::shared_ptr<VrpcAgent> from_commandline(int argc, char** argv) {
@@ -103,6 +124,17 @@ class VrpcAgent {
             json{{"status", "offline"}, {"hostname", VrpcAgent::get_hostname()}}
                 .dump()),
         mqtt::qos::at_least_once | mqtt::retain::yes));
+
+#ifdef VRPC_USE_TLS
+    _client->get_ssl_context().set_verify_mode(boost::asio::ssl::verify_none);
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+
+    SSL_CTX_set_keylog_callback(_client->get_ssl_context().native_handle(),
+                                [](SSL const*, char const* line) {});
+
+#endif  // OPENSSL_VERSION_NUMBER >= 0x10101000L
 
     // reconnect handler
     boost::asio::steady_timer timer(_ioc);
@@ -265,8 +297,16 @@ class VrpcAgent {
     if (_agent.empty()) {
       _agent = VrpcAgent::generate_agent_name();
     }
-    // instantiate mqtt client
+// instantiate mqtt client
+#ifdef VRPC_USE_TLS
+
+    _client = mqtt::make_tls_sync_client(_ioc, _broker.host, _broker.port);
+
+#else
+
     _client = mqtt::make_sync_client(_ioc, _broker.host, _broker.port);
+
+#endif
     // register handler for vrpc callbacks
     vrpc::Callback::register_callback_handler([&](const json& j) {
       const std::string sender = j["s"].get<std::string>();

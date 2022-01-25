@@ -166,7 +166,8 @@ describe('Testing C++ agent using Node.js client', () => {
         assert(instanceNewSpy.notCalled)
       })
       it('should not list any available instances', () => {
-        const instances = client.getAvailableInstances('Foo', {
+        const instances = client.getAvailableInstances({
+          className: 'Foo',
           agent: 'agent1'
         })
         assert.strictEqual(instances.length, 0)
@@ -248,8 +249,9 @@ describe('Testing C++ agent using Node.js client', () => {
         })
       })
       it('should list the available instances', () => {
-        const instances = client.getAvailableInstances('Foo', {
-          agent: 'agent1'
+        const instances = client.getAvailableInstances({
+          agent: 'agent1',
+          className: 'Foo'
         })
         assert.deepStrictEqual(instances, ['instance2', 'instance1'])
       })

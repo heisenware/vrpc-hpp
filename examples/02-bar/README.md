@@ -14,7 +14,7 @@ that creating VRPC bindings still remains a trivial task...
 > (containing the header-only library):
 >
 > ```bash
-> wget https://vrpc.io/download/cpp/vrpc.tar.gz
+> wget https://vrpc.io/vrpc-3.0.0.tar.gz
 > tar -xzf vrpc.tar.gz
 > ```
 >
@@ -248,7 +248,7 @@ your agent should build and be ready to use.
 > inserts tabs and not spaces (as Makefiles need tabs).
 
 Try it by simply running the executable in an all-default setting (using the
-vrpc.io broker and the free `public.vrpc` domain):
+free vrpc.io broker and the default `vrpc` domain):
 
 ```bash
 ./vrpc-bar-agent
@@ -263,49 +263,54 @@ Connecting to message broker... [OK]
 appearing in your terminal, you made it and your C++ code is remotely callable!
 
 Convince yourself and point your browser to
-[live.vrpc.io](https://live.vrpc.io). Log in using `public.vrpc` as domain name
-and leave the token empty. You should see your agent online (it uses your user-,
-host- and platform name).
+[live.vrpc.io](https://live.vrpc.io). Select `vrpc` as domain name and you
+should see your agent online (it uses your user-, host- and platform name).
 
 Or call your code from another piece of code written in e.g. Javascript. Just
-follow the `NodeClientExample`.
+follow the [Node.js Client](https://vrpc.io/examples/node-client) example.
 
 > **NOTE**
 >
-> As you are using the free but public `public.vrpc` domain your code
-> may be executed by anyone that uses your agent name.
+> As you are using the free but public `vrpc.io` broker your code
+> may be executed by anyone else that uses your domain and agent.
 > While convenient for quick testing or examples like this, it's obviously
 > not an option for production settings. Please refer to the optional steps A-C
 > if you want to make the communication between your agents and clients private.
 
 ## Optional steps to make your communication private
 
-### STEP A: Create a free VRPC account
+Using the services from [Heisenware GmbH](https://heisenware.com) you can make
+your communication private by obtaining an exclusive and access controlled
+domain.
+
+### STEP A: Create a Heisenware account
 
 If you already have an account, simply skip this step.
 
-If not, quickly create a new one by clicking on "CREATE NEW ACCOUNT" using the
-[VRPC App](https://app.vrpc.io). It takes less than a minute and the only thing
-required is your name and a valid email address.
+If not, quickly create a new one
+[here](https://admin.heisenware.cloud/#/createAccount). It takes less than a
+minute and the only thing required is your name and a valid email address.
 
-### STEP B: Create a free domain
+### STEP B: Get a domain
 
 If you already have a domain, simply skip this step.
 
-If not, navigate to the `Domains` tab in your VRPC app and click *ADD DOMAIN*,
-choose a free domain and hit *Start 30 days trial* button.
+If not, navigate to the `Domains` tab in the [Admin
+Tool](https://admin.heisenware.cloud) and click *ADD DOMAIN*, choose a free
+domain and hit *Start 30 days trial* button.
 
-### STEP C: Test VRPC installation and connectivity
+### STEP C: Test connectivity
 
 For any agent to work, you must provide it with a valid domain and access
-token. You get an access token from your VRPC app using the `Access Control` tab.
+token. You get an access token from your [Admin
+Tool](https://admin.heisenware.cloud) using the *Access Control* tab.
 
-Simply copy the *defaultAgentToken* or create a new one and use this.
+Simply copy the default *Agent Token* or create a new one and use this.
 
 Having that you are ready to make the communication to your agent private:
 
 ```bash
-./vrpc-test-agent -d <yourDomain> -t <yourToken>
+./vrpc-test-agent -d <yourDomain> -t <yourToken> -b ssl://heisenware.cloud:8883
 ```
 
 In case of success you should see an output similar to this:
@@ -313,7 +318,7 @@ In case of success you should see an output similar to this:
 ```bash
 Domain          : <yourDomain>
 Agent           : <yourAgent>
-Broker          : ssl://vrpc.io:8883
+Broker          : ssl://heisenware.cloud:8883
 ------
 Connecting to message broker... [OK]
 ```
@@ -322,3 +327,9 @@ Now, your agent code runs under your private domain and anyone wanting to
 communicate to it needs to be in the same domain and having a valid access
 token to do so. Using the [VRPC App](https://app.vrpc.io) you may even generate access tokens
 with detailed access rights down to a per-function level.
+
+**IMPORTANT**
+>
+> Use `heisenware.cloud` as broker host when working with professional
+> Heisenware accounts.
+>

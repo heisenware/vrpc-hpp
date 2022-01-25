@@ -39,10 +39,12 @@ Cloud-Computing.
 
 ## This is VRPC for C++ (as header-only library)
 
+vrpc_hpp requires C++14 and the Boost Libraries 1.67.0 or later.
+
 Understand how to use it by looking at the examples:
 
-- [Simple Agent Example](examples/foo/README.md)
-- [Advanced Agent Example](examples/bar/README.md)
+- [Simple Agent Example](examples/01-foo/README.md)
+- [Advanced Agent Example](examples/02-bar/README.md)
 
 Get all the details by reading the documentation:
 
