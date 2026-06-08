@@ -32,6 +32,7 @@ class VrpcAgent {
   std::string _url;
   std::string _plugin;
   BrokerInfo _broker;
+  mqtt::qos _qos;
 
   // Isolated instances
   typedef std::unordered_map<std::string,
@@ -71,10 +72,10 @@ class VrpcAgent {
     std::string agent;
     std::string username;
     std::string password;
-    std::string token;
     std::string version;
     std::string plugin;
     std::string domain = "vrpc";
+    bool best_effort = true;
 #ifdef VRPC_USE_TLS
     std::string broker = "ssl://vrpc.io:8883";
 #else
@@ -121,7 +122,7 @@ class VrpcAgent {
         mqtt::allocate_buffer(
             json{{"status", "offline"}, {"hostname", VrpcAgent::get_hostname()}}
                 .dump()),
-        mqtt::qos::at_least_once | mqtt::retain::yes));
+        _qos | mqtt::retain::yes));
 
 #ifdef VRPC_USE_TLS
     _client->get_ssl_context().set_verify_mode(boost::asio::ssl::verify_none);
@@ -162,12 +163,13 @@ class VrpcAgent {
             publish_agent_info();
             auto topics = generate_topics();
             for (const auto& topic : topics) {
-              _client->subscribe(topic, mqtt::qos::at_least_once);
+              _client->subscribe(topic, _qos);
             }
             // Publish class information
             const auto& classes = LocalFactory::get_classes();
             for (const auto& klass : classes) {
               publish_class_info(klass);
+              publish_class_info_concise(klass);
             }
           }
           return true;
@@ -189,7 +191,7 @@ class VrpcAgent {
       if (tokens.size() == 4 && tokens[3] == "__clientInfo__") {
         auto j = json::parse(std::string(contents));
         if (j["status"].get<std::string>() == "offline") {
-          const std::string client = topic.substr(0, topic.length() - 9);
+          const std::string client = topic.substr(0, topic.length() - 15);
           const auto it = _isolated_instances.find(client);
           if (it != _isolated_instances.end()) {
             for (const auto& p : it->second) {
@@ -237,13 +239,15 @@ class VrpcAgent {
           subscribe_to_instance(klass, instance);
           // Publish classInfo message (as number of instances changed)
           publish_class_info(klass);
+          publish_class_info_concise(klass);
         } else if (function == "__delete__") {
           unsubscribe_from_instance(klass, instance);
           publish_class_info(klass);
+          publish_class_info_concise(klass);
           unregister_isolated_instance(instance, klass, sender);
         }
         // RPC answer goes here
-        _client->publish(sender, j.dump(), mqtt::qos::at_least_once);
+        _client->publish(sender, j.dump(), _qos);
       });
       return true;
     });
@@ -276,7 +280,7 @@ class VrpcAgent {
                           {"hostname", VrpcAgent::get_hostname()},
                           {"v", VRPC_PROTOCOL_VERSION}}
                          .dump(),
-                     mqtt::qos::at_least_once | mqtt::retain::yes);
+                     _qos | mqtt::retain::yes);
     _client->disconnect(3s);
     _ioc.stop();
   }
@@ -289,7 +293,8 @@ class VrpcAgent {
         _password(options.password),
         _version(options.version),
         _url(options.broker),
-        _broker(VrpcAgent::extract_broker_info(options.broker)) {
+        _broker(VrpcAgent::extract_broker_info(options.broker)),
+        _qos(options.best_effort ? mqtt::qos::at_most_once : _qos) {
     // TODO validate domain and agent
     if (_agent.empty()) {
       _agent = VrpcAgent::generate_agent_name();
@@ -307,7 +312,16 @@ class VrpcAgent {
     // register handler for vrpc callbacks
     vrpc::Callback::register_callback_handler([&](const json& j) {
       const std::string sender = j["s"].get<std::string>();
-      _client->publish(sender, j.dump(), mqtt::qos::at_least_once);
+      const std::string i = j.value("i", "");
+
+      std::string topic = sender;
+      // If the callback ID indicates it's an event, route it to the specific
+      // topic
+      if (i.rfind("__e__", 0) == 0) {
+        topic = i.substr(5);
+      }
+
+      _client->publish(topic, j.dump(), _qos);
     });
   }
 
@@ -319,7 +333,8 @@ class VrpcAgent {
       if (arg == "--help") {
         std::cout << "usage: " << args[0]
                   << " -d <domain> -a <agent> -u <user> -p "
-                     "<password> -b <broker> -l <load-plugin>"
+                     "<password> -b <broker> -l <load-plugin> "
+                     "--bestEffort --no-bestEffort"
                   << std::endl;
         return false;
       }
@@ -341,6 +356,10 @@ class VrpcAgent {
         opts.username = args[i];
       } else if (arg == "-p" && ++i < size) {
         opts.password = args[i];
+      } else if (arg == "--bestEffort") {
+        opts.best_effort = true;
+      } else if (arg == "--no-bestEffort") {
+        opts.best_effort = false;
       }
     }
     return true;
@@ -436,7 +455,7 @@ class VrpcAgent {
     j["version"] = _version;
     j["v"] = VRPC_PROTOCOL_VERSION;
     const std::string t(_domain + "/" + _agent + "/__agentInfo__");
-    _client->publish(t, j.dump(), mqtt::qos::at_least_once | mqtt::retain::yes);
+    _client->publish(t, j.dump(), _qos | mqtt::retain::yes);
   }
 
   std::vector<std::string> generate_topics() const {
@@ -475,7 +494,19 @@ class VrpcAgent {
     j["meta"] = LocalFactory::get_meta_data(klass);
     j["v"] = VRPC_PROTOCOL_VERSION;
     std::string t(_domain + "/" + _agent + "/" + klass + "/__classInfo__");
-    _client->publish(t, j.dump(), mqtt::qos::at_least_once | mqtt::retain::yes);
+    _client->publish(t, j.dump(), _qos | mqtt::retain::yes);
+  }
+
+  void publish_class_info_concise(const std::string& klass) {
+    json j;
+    j["className"] = klass;
+    j["instances"] = LocalFactory::get_instances(klass);
+    j["memberFunctions"] = LocalFactory::get_member_functions(klass);
+    j["staticFunctions"] = LocalFactory::get_static_functions(klass);
+    j["v"] = VRPC_PROTOCOL_VERSION;
+    std::string t(_domain + "/" + _agent + "/" + klass +
+                  "/__classInfoConcise__");
+    _client->publish(t, j.dump(), _qos | mqtt::retain::yes);
   }
 
   static std::vector<std::string> tokenize(const std::string& input,
@@ -512,7 +543,7 @@ class VrpcAgent {
       function = VrpcAgent::remove_signature(function);
       const std::string topic(_domain + "/" + _agent + "/" + klass + "/" +
                               instance + "/" + function);
-      _client->subscribe(topic, mqtt::qos::at_least_once);
+      _client->subscribe(topic, _qos);
       _VRPC_DEBUG << "Subscribed to new topic: " << topic << std::endl;
     }
   }
@@ -538,7 +569,7 @@ class VrpcAgent {
     } else {  // new client
       _isolated_instances[client_id].insert({instance, klass});
       _client->subscribe(client_id + "/__clientInfo__",
-                         mqtt::qos::at_least_once);
+                         _qos);
     }
     _VRPC_DEBUG << "Tracking lifetime of client: " << client_id << std::endl;
   }

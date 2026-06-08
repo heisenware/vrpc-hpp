@@ -78,7 +78,7 @@ describe('Testing C++ agent using Node.js client', () => {
             '__createShared__-string',
             '__createIsolated__-string'
           ],
-          meta: null
+          meta: {}
         })
       )
     })
@@ -238,7 +238,7 @@ describe('Testing C++ agent using Node.js client', () => {
             '__createShared__-string',
             '__createIsolated__-string'
           ],
-          meta: null
+          meta: {}
         })
         assert(instanceNewSpy.calledTwice)
         assert.deepStrictEqual(instanceNewSpy.args[1][0], ['instance2'])

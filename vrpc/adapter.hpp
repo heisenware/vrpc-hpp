@@ -42,7 +42,7 @@ SOFTWARE.
 #define VRPC_ADAPTER_HPP
 
 #define VRPC_VERSION_MAJOR 3
-#define VRPC_VERSION_MINOR 0
+#define VRPC_VERSION_MINOR 1
 #define VRPC_VERSION_PATCH 0
 
 #include <cstdint>
@@ -67,12 +67,10 @@ SOFTWARE.
 
 #ifdef VRPC_DEBUG
 #define _VRPC_DEBUG \
-  if (1)            \
-  std::cout << "vrpc::" << __func__ << "\t"
+  if (1) std::cout << "vrpc::" << __func__ << "\t"
 #else
 #define _VRPC_DEBUG \
-  if (0)            \
-  std::cout << "vrpc::" << __func__ << "\t"
+  if (0) std::cout << "vrpc::" << __func__ << "\t"
 #endif
 
 // Add std::function to json's serializable types
@@ -857,8 +855,7 @@ class LocalFactory {
   static std::vector<std::string> get_instances(const std::string& class_name) {
     std::vector<std::string> instances;
     for (const auto& kv : detail::init<LocalFactory>()._shared_instances) {
-      if (kv.second == class_name)
-        instances.push_back(kv.first);
+      if (kv.second == class_name) instances.push_back(kv.first);
     }
     return instances;
   }
@@ -961,8 +958,7 @@ class LocalFactory {
     auto func = [=](const std::string& instance_id, Args... args) {
       LocalFactory& rf = detail::init<LocalFactory>();
       const auto& it = rf._instances.find(instance_id);
-      if (it != rf._instances.end())
-        return instance_id;
+      if (it != rf._instances.end()) return instance_id;
       // Create instance
       auto ptr = std::shared_ptr<Klass>(new Klass(args...));
       // Bind member functions
@@ -990,8 +986,7 @@ class LocalFactory {
     auto func = [=](const std::string& instance_id, Args... args) {
       LocalFactory& rf = detail::init<LocalFactory>();
       const auto& it = rf._instances.find(instance_id);
-      if (it != rf._instances.end())
-        return instance_id;
+      if (it != rf._instances.end()) return instance_id;
       // Create instance
       auto ptr = std::shared_ptr<Klass>(new Klass(args...));
       // Bind member functions
@@ -1021,8 +1016,7 @@ class LocalFactory {
     auto func = [=](const std::string& instance_id) {
       LocalFactory& rf = detail::init<LocalFactory>();
       const auto& it = rf._instances.find(instance_id);
-      if (it == rf._instances.end())
-        return false;
+      if (it == rf._instances.end()) return false;
       rf._function_registry.erase(instance_id);
       rf._instances.erase(instance_id);
       rf._shared_instances.erase(instance_id);
@@ -1050,7 +1044,7 @@ struct CtorRegistrar {
 
 template <class Klass, typename... Args>
 struct RegisterCtor {
-  static const CtorRegistrar<Klass, Args...> registerAs;
+  static const CtorRegistrar<Klass, Args...> registerAs __attribute__((used));
 };
 
 template <class Klass, typename... Args>
@@ -1073,7 +1067,7 @@ struct CtorXRegistrar {
 
 template <class Klass, typename... Args>
 struct RegisterCtorX {
-  static const CtorXRegistrar<Klass, Args...> registerAs;
+  static const CtorXRegistrar<Klass, Args...> registerAs __attribute__((used));
 };
 
 template <class Klass, typename Func, Func f, typename Ret, typename... Args>
@@ -1109,13 +1103,14 @@ struct MemberFunctionXRegistrar {
 
 template <class Klass, typename Func, Func f, typename Ret, typename... Args>
 struct RegisterMemberFunction {
-  static const MemberFunctionRegistrar<Klass, Func, f, Ret, Args...> registerAs;
+  static const MemberFunctionRegistrar<Klass, Func, f, Ret, Args...> registerAs
+      __attribute__((used));
 };
 
 template <class Klass, typename Func, Func f, typename Ret, typename... Args>
 struct RegisterMemberFunctionX {
-  static const MemberFunctionXRegistrar<Klass, Func, f, Ret, Args...>
-      registerAs;
+  static const MemberFunctionXRegistrar<Klass, Func, f, Ret, Args...> registerAs
+      __attribute__((used));
 };
 
 template <typename Func, Func f, typename Ret, typename... Args>
@@ -1131,7 +1126,8 @@ struct StaticFunctionRegistrar {
 
 template <typename Func, Func f, typename Ret, typename... Args>
 struct RegisterStaticFunction {
-  static const StaticFunctionRegistrar<Func, f, Ret, Args...> registerAs;
+  static const StaticFunctionRegistrar<Func, f, Ret, Args...> registerAs
+      __attribute__((used));
 };
 
 template <typename Func, Func f, typename Ret, typename... Args>
@@ -1156,7 +1152,8 @@ struct StaticFunctionXRegistrar {
 
 template <typename Func, Func f, typename Ret, typename... Args>
 struct RegisterStaticFunctionX {
-  static const StaticFunctionXRegistrar<Func, f, Ret, Args...> registerAs;
+  static const StaticFunctionXRegistrar<Func, f, Ret, Args...> registerAs
+      __attribute__((used));
 };
 }  // namespace detail
 
