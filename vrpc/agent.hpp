@@ -28,7 +28,6 @@ class VrpcAgent {
   std::string _agent;
   std::string _username;
   std::string _password;
-  std::string _token;
   std::string _version;
   std::string _url;
   std::string _plugin;
@@ -103,6 +102,8 @@ class VrpcAgent {
     std::cout << "Domain : " << _domain << std::endl;
     std::cout << "Agent  : " << _agent << std::endl;
     std::cout << "Broker : " << _url << std::endl;
+    std::cout << "Username : " << _username << std::endl;
+    std::cout << "Password : " << _password << std::endl;
     std::cout << "Connecting to message broker... " << std::flush;
 
     // setup client
@@ -112,12 +113,9 @@ class VrpcAgent {
     if (!_password.empty()) {
       _client->set_password(_password);
     }
-    if (!_token.empty()) {
-      _client->set_user_name("__token__");
-      _client->set_password(_token);
-    }
     _client->set_client_id(generate_client_id());
     _client->set_clean_session(true);
+    _client->set_keep_alive_sec(20);
     _client->set_will(mqtt::will(
         mqtt::allocate_buffer(_domain + "/" + _agent + "/__agentInfo__"),
         mqtt::allocate_buffer(
@@ -289,7 +287,6 @@ class VrpcAgent {
         _agent(options.agent),
         _username(options.username),
         _password(options.password),
-        _token(options.token),
         _version(options.version),
         _url(options.broker),
         _broker(VrpcAgent::extract_broker_info(options.broker)) {
@@ -321,7 +318,7 @@ class VrpcAgent {
       const std::string arg(args[i]);
       if (arg == "--help") {
         std::cout << "usage: " << args[0]
-                  << " -d <domain> -a <agent> -t <token> -u <user> -p "
+                  << " -d <domain> -a <agent> -u <user> -p "
                      "<password> -b <broker> -l <load-plugin>"
                   << std::endl;
         return false;
@@ -334,9 +331,7 @@ class VrpcAgent {
         opts.domain = args[i];
       } else if (arg == "-a" && ++i < size) {
         opts.agent = args[i];
-      } else if (arg == "-t" && ++i < size) {
-        opts.token = args[i];
-      } else if (arg == "-p" && ++i < size) {
+      } else if (arg == "-l" && ++i < size) {
         opts.plugin = args[i];
       } else if (arg == "-v" && ++i < size) {
         opts.version = args[i];
@@ -385,7 +380,7 @@ class VrpcAgent {
     char username[LOGIN_NAME_MAX];
     getlogin_r(username, LOGIN_NAME_MAX);
 #else
-    std::string username('unkown')
+    std::string username("unkown")
 #endif
     return std::string(username);
   }
@@ -401,13 +396,13 @@ class VrpcAgent {
     ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
     return std::string(result, (count > 0) ? count : 0);
 #else
-    return detail::get_hostname()
+    return get_hostname()
 #endif
   }
 
   static std::string get_hostname() {
-    char hostname[HOST_NAME_MAX];
-    gethostname(hostname, HOST_NAME_MAX);
+    char hostname[64];
+    gethostname(hostname, 64);
     return std::string(hostname);
   }
 
