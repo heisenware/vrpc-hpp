@@ -1,52 +1,125 @@
-# VRPC - Variadic Remote Procedure Calls
+# VRPC C++ Agent
 
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/heisenware/vrpc-hpp/master/LICENSE)
-[![Semver](https://img.shields.io/badge/semver-2.0.0-blue)](https://semver.org/spec/v2.0.0.html)
-[![GitHub Releases](https://img.shields.io/github/tag/heisenware/vrpc-hpp.svg)](https://github.com/heisenware/vrpc-hpp/tag)
-[![GitHub Issues](https://img.shields.io/github/issues/heisenware/vrpc-hpp.svg)](http://github.com/heisenware/vrpc-hpp/issues)
-![ci](https://github.com/heisenware/vrpc-hpp/actions/workflows/ci.yml/badge.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![C++14](https://img.shields.io/badge/C++-14-blue.svg)](https://isocpp.org/)
 
-## Visit our website: [vrpc.io](https://vrpc.io)
+**Stop writing API boilerplate.** VRPC (Virtual Remote Procedure Call) allows you to call C++, Node.js, Python, and Arduino classes across any network as if they were local objects. It is perfect for microservices, IoT edge devices, and directly driving React frontends—without the need for REST, GraphQL, or WebSocket boilerplate.
 
-## What is VRPC?
+This repository provides the **C++ Agent**, allowing you to non-intrusively bind your existing C++ code and make it remotely controllable in minutes.
 
-VRPC is an enhancement of the old RPC (remote procedure calls) idea. Like RPC,
-it allows to directly call functions written in any programming language by
-functions written in any other (or the same) programming language. Unlike RPC,
-VRPC uses an MQTT broker for message routing, and additionally supports:
+---
 
-- non-intrusive adaption of existing code, making it remotely callable
-- remote function calls on many distributed receivers at the same time (one
-  client - multiple agents)
-- service discovery
-- outbound-connection-only network architecture (thanks to MQTT technology)
-- isolated (multi-tenant) and shared access modes to remotely available
-  resources
-- asynchronous language constructs (callbacks, promises, event-loops)
-- OOP (classes, objects, member functions) and functional (lambda) patterns
-- exception forwarding
+## Why VRPC for C++?
 
-VRPC is available for an entire spectrum of programming technologies including
-embedded (Arduino, header-only C++, etc.), data-science (Python, R,
-etc.), and web (Javascript, React, etc.) technologies.
+* **Zero Boilerplate:** No IDL files (like Protobuf or gRPC), no route definitions, and no payload parsing. Just use simple macros to register your class, and VRPC instantly makes its public methods remotely callable.
+* **Native Event Proxies:** Don't just fetch data—stream it. VRPC transparently proxies C++ callbacks across the network. When your C++ edge device emits a hardware event, your React UI or Node.js backend updates instantly.
+* **MQTT-Powered NAT Traversal:** Built on top of robust MQTT, VRPC agents make outbound connections to your broker. No open firewall ports, no complex reverse proxies, and perfect resilience on unstable edge networks.
+* **Header-Only Core:** The binding adapter is lightweight and highly template-driven, seamlessly handling variadic arguments and complex data types via JSON serialization.
 
-As a robust and highly performing communication system it can build the
-foundation of complex digitization projects in the area of (I)IoT or
-Cloud-Computing.
+## Quick Start
 
-> VRPC is professionally managed and supported by
-> [Heisenware GmbH](https://heisenware.com).
+With VRPC, making a C++ class remotely accessible requires almost zero changes to your actual business logic.
 
-## This is VRPC for C++ (as header-only library)
+### 1. Write your C++ Class
+```cpp
+// Foo.hpp
+#include <iostream>
+#include <functional>
 
-vrpc_hpp requires C++14 and the Boost Libraries 1.67.0 or later.
+class Foo {
+  int _value;
 
-Understand how to use it by looking at the examples:
+public:
+  Foo(int initial_value) : _value(initial_value) {}
 
-- [Simple Agent Example](examples/01-foo/README.md)
-- [Advanced Agent Example](examples/02-bar/README.md)
+  int increment() {
+    return ++_value;
+  }
 
-Get all the details by reading the documentation:
+  // VRPC supports asynchronous callbacks out of the box!
+  void onValue(const std::function<void(int)>& callback) {
+     callback(_value);
+  }
+};
+```
 
-- [Adapter](docs/adapter.md)
-- [Agent](docs/agent.md)
+### 2. Bind it using VRPC
+```cpp
+// adapter.cpp
+#include <vrpc/adapter.hpp>
+#include "Foo.hpp"
+
+// Bind the constructor
+VRPC_CTOR(Foo, int)
+
+// Bind the member functions
+VRPC_MEMBER_FUNCTION(Foo, int, increment)
+VRPC_MEMBER_FUNCTION(Foo, void, onValue, VRPC_CALLBACK(int))
+```
+
+### 3. Start the Agent
+```cpp
+// main.cpp
+#include <vrpc/agent.hpp>
+
+int main(int argc, char** argv) {
+  auto agent = vrpc::VrpcAgent::from_commandline(argc, argv);
+  if (agent) {
+    agent->serve();
+  }
+  return 0;
+}
+```
+
+Start your agent from the command line:
+```bash
+./my_vrpc_agent -d my_domain -a cpp_edge_device -b mqtts://broker.hivemq.com:8883
+```
+
+### 4. Call it from Anywhere (e.g., Node.js / React)
+Once your C++ agent is running, you can interact with it transparently from any VRPC client:
+
+```javascript
+import { VrpcClient } from 'vrpc';
+
+const client = new VrpcClient({ domain: 'my_domain' });
+
+await client.connect();
+
+// Create a remote instance of your C++ class
+const foo = await client.create({
+  agent: 'cpp_edge_device',
+  className: 'Foo',
+  args: [41]
+});
+
+// Call functions natively
+const result = await foo.increment();
+console.log(result); // 42
+
+// Listen to C++ callbacks across the network!
+await foo.onValue((val) => {
+  console.log(`C++ emitted: ${val}`);
+});
+```
+
+## The VRPC Ecosystem
+
+Write your performance-critical code in **C++**, your data-science scripts in **Python**, your business logic in **Node.js**, and your IoT firmware on **Arduino**. Call them all identically.
+
+* [VRPC for Node.js / Browser](https://github.com/heisenware/vrpc-js)
+* [VRPC for Python](https://github.com/heisenware/vrpc-python)
+* [VRPC for Arduino / ESP32](https://github.com/heisenware/vrpc-arduino)
+* [VRPC for React](https://github.com/heisenware/vrpc-react)
+
+## Documentation
+
+For detailed installation instructions, CMake integration, advanced macro usage, and architecture overviews, please visit our official documentation at **[vrpc.io/docs](https://vrpc.io/docs)**.
+
+## Contributing
+
+Contributions are welcome! Whether it's reporting a bug, proposing a new feature, or submitting a pull request, we'd love your help to make VRPC even better. Please read our [Contributing Guidelines](CONTRIBUTING.md) to get started.
+
+## License
+
+VRPC is released under the [MIT License](LICENSE).
