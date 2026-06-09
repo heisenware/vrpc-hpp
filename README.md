@@ -108,7 +108,7 @@ await foo.onValue((val) => {
 Write your performance-critical code in **C++**, your data-science scripts in **Python**, your business logic in **Node.js**, and your IoT firmware on **Arduino**. Call them all identically.
 
 * [VRPC for Node.js / Browser](https://github.com/heisenware/vrpc-js)
-* [VRPC for Python](https://github.com/heisenware/vrpc-python)
+* [VRPC for Python](https://github.com/heisenware/vrpc-py)
 * [VRPC for Arduino / ESP32](https://github.com/heisenware/vrpc-arduino)
 * [VRPC for React](https://github.com/heisenware/vrpc-react)
 
