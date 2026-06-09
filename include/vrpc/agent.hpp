@@ -399,7 +399,7 @@ class VrpcAgent {
     char username[LOGIN_NAME_MAX];
     getlogin_r(username, LOGIN_NAME_MAX);
 #else
-    std::string username("unkown")
+    std::string username("unkown");
 #endif
     return std::string(username);
   }
@@ -415,7 +415,7 @@ class VrpcAgent {
     ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
     return std::string(result, (count > 0) ? count : 0);
 #else
-    return get_hostname()
+    return get_hostname();
 #endif
   }
 
