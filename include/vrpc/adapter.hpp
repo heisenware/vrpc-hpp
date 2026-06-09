@@ -43,7 +43,7 @@ SOFTWARE.
 
 #define VRPC_VERSION_MAJOR 3
 #define VRPC_VERSION_MINOR 1
-#define VRPC_VERSION_PATCH 1
+#define VRPC_VERSION_PATCH 2
 
 #include <cstdint>
 #include <functional>
@@ -1103,14 +1103,13 @@ struct MemberFunctionXRegistrar {
 
 template <class Klass, typename Func, Func f, typename Ret, typename... Args>
 struct RegisterMemberFunction {
-  static const MemberFunctionRegistrar<Klass, Func, f, Ret, Args...> registerAs
-     ;
+  static const MemberFunctionRegistrar<Klass, Func, f, Ret, Args...> registerAs;
 };
 
 template <class Klass, typename Func, Func f, typename Ret, typename... Args>
 struct RegisterMemberFunctionX {
-  static const MemberFunctionXRegistrar<Klass, Func, f, Ret, Args...> registerAs
-     ;
+  static const MemberFunctionXRegistrar<Klass, Func, f, Ret, Args...>
+      registerAs;
 };
 
 template <typename Func, Func f, typename Ret, typename... Args>
@@ -1126,8 +1125,7 @@ struct StaticFunctionRegistrar {
 
 template <typename Func, Func f, typename Ret, typename... Args>
 struct RegisterStaticFunction {
-  static const StaticFunctionRegistrar<Func, f, Ret, Args...> registerAs
-     ;
+  static const StaticFunctionRegistrar<Func, f, Ret, Args...> registerAs;
 };
 
 template <typename Func, Func f, typename Ret, typename... Args>
@@ -1152,8 +1150,7 @@ struct StaticFunctionXRegistrar {
 
 template <typename Func, Func f, typename Ret, typename... Args>
 struct RegisterStaticFunctionX {
-  static const StaticFunctionXRegistrar<Func, f, Ret, Args...> registerAs
-     ;
+  static const StaticFunctionXRegistrar<Func, f, Ret, Args...> registerAs;
 };
 }  // namespace detail
 
