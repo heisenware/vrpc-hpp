@@ -24,8 +24,8 @@ trap 'cleanup ; printf "${RED}Tests Failed For Unexpected Reasons${NC}\n"'\
   HUP INT QUIT PIPE TERM
 
 # copy the current vrpc headers into the fixtures
-cp -rf ../../vrpc fixtures/agent1/
-cp -rf ../../vrpc fixtures/agent2/
+cp -rf ../../include/vrpc fixtures/agent1/
+cp -rf ../../include/vrpc fixtures/agent2/
 
 # run the composed services
 docker compose build && docker compose -p ${PROJECT} up -d
