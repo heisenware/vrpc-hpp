@@ -1044,7 +1044,7 @@ struct CtorRegistrar {
 
 template <class Klass, typename... Args>
 struct RegisterCtor {
-  static const CtorRegistrar<Klass, Args...> registerAs __attribute__((used));
+  static const CtorRegistrar<Klass, Args...> registerAs;
 };
 
 template <class Klass, typename... Args>
@@ -1067,7 +1067,7 @@ struct CtorXRegistrar {
 
 template <class Klass, typename... Args>
 struct RegisterCtorX {
-  static const CtorXRegistrar<Klass, Args...> registerAs __attribute__((used));
+  static const CtorXRegistrar<Klass, Args...> registerAs;
 };
 
 template <class Klass, typename Func, Func f, typename Ret, typename... Args>
@@ -1104,13 +1104,13 @@ struct MemberFunctionXRegistrar {
 template <class Klass, typename Func, Func f, typename Ret, typename... Args>
 struct RegisterMemberFunction {
   static const MemberFunctionRegistrar<Klass, Func, f, Ret, Args...> registerAs
-      __attribute__((used));
+     ;
 };
 
 template <class Klass, typename Func, Func f, typename Ret, typename... Args>
 struct RegisterMemberFunctionX {
   static const MemberFunctionXRegistrar<Klass, Func, f, Ret, Args...> registerAs
-      __attribute__((used));
+     ;
 };
 
 template <typename Func, Func f, typename Ret, typename... Args>
@@ -1127,7 +1127,7 @@ struct StaticFunctionRegistrar {
 template <typename Func, Func f, typename Ret, typename... Args>
 struct RegisterStaticFunction {
   static const StaticFunctionRegistrar<Func, f, Ret, Args...> registerAs
-      __attribute__((used));
+     ;
 };
 
 template <typename Func, Func f, typename Ret, typename... Args>
@@ -1153,7 +1153,7 @@ struct StaticFunctionXRegistrar {
 template <typename Func, Func f, typename Ret, typename... Args>
 struct RegisterStaticFunctionX {
   static const StaticFunctionXRegistrar<Func, f, Ret, Args...> registerAs
-      __attribute__((used));
+     ;
 };
 }  // namespace detail
 
